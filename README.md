@@ -2,7 +2,7 @@
 ## 📋 Problem Statement
 Gig workers in India lose 4-6 hours of wages whenever unexpected disruptions strike—heavy rain, extreme heatwaves, or sudden curfews. With no safety net, a single rainy day can cost a delivery partner ₹400-600. Existing insurance is either unavailable or requires manual claims filing when workers are already stressed.
 
-We're building RainShield: an AI-powered parametric insurance platform that automatically pays delivery partners when external disruptions prevent them from working. No forms. No delays. Just instant income protection.
+We're building WageWings: an AI-powered parametric insurance platform that automatically pays delivery partners when curfews, heavy traffic, or weather prevent them from working. No forms. No delays. Just instant income protection
 ## 👤 Persona Definition
 
 | Attribute | Details |
@@ -27,10 +27,10 @@ With 10-minute delivery promises, ANY disruption means IMMEDIATE income loss. Ra
 
 | Process Step | Description |
 | :--- | :--- |
-| **Registration** | Rajesh signs up with phone number and Blinkit partner ID |
+| **Registration** | Ravi signs up with phone number and Blinkit partner ID |
 | **Risk Assessment** | System analyzes zone (Andheri East), historical weather, and claim patterns |
-| **Quote Generation** | AI calculates personalized weekly premium (**₹312** for Rajesh) |
-| **Policy Purchase** | Rajesh pays via UPI (Razorpay sandbox) |
+| **Quote Generation** | AI calculates personalized weekly premium  |
+| **Policy Purchase** | Ravi pays via UPI (Razorpay sandbox) |
 | **24/7 Monitoring** | System polls [OpenWeatherMap](https://openweathermap.org) every 15 minutes |
 | **Trigger Detection** | Heavy rain detected in Andheri East (>5mm/hr) |
 | **Auto-Claim** | Claim created automatically for all active policies in zone |
@@ -38,33 +38,24 @@ With 10-minute delivery promises, ANY disruption means IMMEDIATE income loss. Ra
 | **Pricing Note** | **BASE_PREMIUM** = ₹200 per week |
 
 
-FINAL_PREMIUM = BASE_PREMIUM × (all applicable multipliers)
-
-Instant Payout: ₹400 credited to Rajesh's bank account
 
 Notification: Rajesh gets SMS: "Rain detected! ₹400 credited for lost income"
 ## Real-World Examples
-Example 1: Rajesh (Mumbai, Monsoon, Clean Record)
+Example 1: 
+1. Ravi: Full Rain Day 
 
-Base: ₹200
+In this scenario, the rain is so heavy that Ravi cannot start his shift at all.
 
-High-risk zone: ×1.5
+    Baseline: 20 orders/day (his 30-day personal average).
 
-Monsoon season: ×1.3
+    Orders Completed: 0 orders.
 
-Clean record: ×0.8
+    Price Per Order: ₹50.
 
-Final: 200 × 1.5 × 1.3 × 0.8 = ₹312/week
+    Calculation: (20−0)×50=₹1,000.
 
-Example 2: Priya (Bangalore, Low-risk, New User)
+    Final Payout: ₹800 (The amount is capped at ₹800 to keep the insurance pool sustainable).
 
-Base: ₹200
-
-Low-risk zone: ×0.9
-
-New user: ×1.0
-
-Final: 200 × 0.9 × 1.0 = ₹180/week
 ## ⚡ Parametric Triggers
 Trigger	Data Source	Threshold	Payout Calculation
 Heavy Rain	OpenWeatherMap	>5mm/hr in last hour	4 hrs × avg hourly wage
@@ -94,17 +85,6 @@ Device Fingerprint	Same device, multiple accounts	Flag for investigation
 "Unusual claim pattern detected in Andheri East" - admin alert
 
 "Next week risk forecast: High" - suggest premium adjustment
-
-## 📱 Platform Decision: Web App (PWA)
-
-| Factor | Web App | Mobile App | Decision |
-| :--- | :--- | :--- | :--- |
-| **Development Speed** | ✅ Fast | ❌ Slow | Web |
-| **Cross-platform** | ✅ All devices | ❌ iOS/Android separate | Web |
-| **Demo-able** | ✅ Any browser | ✅ Need emulator | Web |
-| **Updates** | ✅ Instant | ❌ App store review | Web |
-| **Offline capability** | ✅ (PWA) | ✅ | PWA |
-| **Push notifications** | ✅ | ✅ | Both |
 
 Final Choice: Progressive Web App (PWA) - mobile-responsive website that works offline and can be installed on home screen.
 
