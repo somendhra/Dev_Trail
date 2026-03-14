@@ -1,4 +1,3 @@
-# Dev_Trail
 # WageWings
 ## 📋 Problem Statement
 Gig workers in India lose 4-6 hours of wages whenever unexpected disruptions strike—heavy rain, extreme heatwaves, or sudden curfews. With no safety net, a single rainy day can cost a delivery partner ₹400-600. Existing insurance is either unavailable or requires manual claims filing when workers are already stressed.
@@ -37,23 +36,6 @@ With 10-minute delivery promises, ANY disruption means IMMEDIATE income loss. Ra
 | **Auto-Claim** | Claim created automatically for all active policies in zone |
 | **Fraud Validation** | System cross-checks weather data from multiple sources |
 | **Pricing Note** | **BASE_PREMIUM** = ₹200 per week |
-
-
-## RISK MULTIPLIERS:
-
-| Risk Factor | Multiplier | Data Source |
-| :--- | :---: | :--- |
-| High-risk zone | ×1.5 | Zone master |
-| Medium-risk zone | ×1.2 | Zone master |
-| Low-risk zone | ×0.9 | Zone master |
-| Monsoon season | ×1.3 | Calendar |
-| Summer season | ×1.2 | Calendar |
-| Clean record | ×0.8 | Claim history |
-| 1-2 claims/month | ×1.1 | Claim history |
-| 3+ claims/month | ×1.4 | Claim history |
-| New user | ×1.0 | Default |
-| Weekend worker | ×1.1 | User preference |
-| Night shift | ×1.2 | User preference |
 
 
 FINAL_PREMIUM = BASE_PREMIUM × (all applicable multipliers)
