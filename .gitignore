@@ -6,6 +6,7 @@
 # Logs
 logs
 *.log
+*.log*
 npm-debug.log*
 
 # IDEs
@@ -23,6 +24,7 @@ npm-debug.log*
 **/target/
 **/dist/
 **/build/
+backend/tmpjar/
 
 # Python
 **/__pycache__/
