@@ -92,13 +92,13 @@ const STYLES = `
 
   /* Input */
   .r-input {
-    width:100%; border:1.5px solid #CBD5E1; border-radius:11px;
-    padding:12px 14px 12px 42px; font-size:14px; font-weight:600; background:#F1F5F9;
-    color:#000000 !important; outline:none; transition:border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    width:100%; border:1.5px solid #334155; border-radius:11px;
+    padding:12px 14px 12px 42px; font-size:14px; font-weight:600; background:#0F172A;
+    color:#FFFFFF !important; outline:none; transition:border-color 0.2s, box-shadow 0.2s, background 0.2s;
     font-family:'Inter',sans-serif; -webkit-appearance:none;
   }
-  .r-input:focus { border-color:#00D4AA; box-shadow:0 0 0 3px rgba(0,212,170,0.2); background:#fff; color:#000000 !important; }
-  .r-input::placeholder { color:#94A3B8; font-weight:500; font-size:13px; }
+  .r-input:focus { border-color:#00D4AA; box-shadow:0 0 0 3px rgba(0,212,170,0.2); background:#1E293B; color:#FFFFFF !important; }
+  .r-input::placeholder { color:#64748B; font-weight:500; font-size:13px; }
   .r-input-pw { padding-right:42px; }
 
   /* Field icon */

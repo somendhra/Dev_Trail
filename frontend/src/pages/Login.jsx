@@ -37,12 +37,12 @@ const STYLES = `
   /* Layout */
   .lroot { display:flex; min-height:100vh; background:#060B18; }
   .l-hero { flex:0 0 45%; min-height:100vh; position:relative; overflow:hidden; background:#060B18; display:flex; flex-direction:column; padding:40px 48px; }
-  .l-form { flex:1; background:#0F172A; display:flex; align-items:center; justify-content:center; min-height:100vh; overflow-y:auto; padding:32px 24px; }
+  .login-dark-form { flex:1; background:#0F172A; display:flex; align-items:center; justify-content:center; min-height:100vh; overflow-y:auto; padding:32px 24px; }
 
   @media(max-width:900px){
     .lroot { flex-direction:column; }
     .l-hero { flex:none; min-height:auto; padding:32px 24px 40px; }
-    .l-form { flex:none; min-height:auto; padding:24px 16px 40px; }
+    .login-dark-form { flex:none; min-height:auto; padding:24px 16px 40px; }
   }
 
   /* Orbs */
@@ -64,7 +64,7 @@ const STYLES = `
   }
 
   /* Card */
-  .l-card {
+  .login-dark-card {
     background:#0B1121; border-radius:22px; width:100%; max-width:430px;
     box-shadow:0 24px 72px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
     overflow:hidden;
@@ -77,14 +77,14 @@ const STYLES = `
 
   /* Input */
   .l-input {
-    width:100%; border:1.5px solid #CBD5E1; border-radius:12px;
-    padding:13px 14px 13px 42px; font-size:15px; font-weight:600; background:#F1F5F9;
-    color:#000000 !important; outline:none; box-sizing:border-box;
+    width:100%; border:1.5px solid #334155; border-radius:12px;
+    padding:13px 14px 13px 42px; font-size:15px; font-weight:600; background:#0F172A;
+    color:#FFFFFF !important; outline:none; box-sizing:border-box;
     transition:border-color 0.2s, box-shadow 0.2s, background 0.2s;
     font-family:'Inter',sans-serif;
   }
-  .l-input:focus { border-color:#00D4AA; box-shadow:0 0 0 3px rgba(0,212,170,0.2); background:#fff; color:#000000 !important; }
-  .l-input::placeholder { color:#94A3B8; font-weight:500; font-size:14px; }
+  .l-input:focus { border-color:#00D4AA; box-shadow:0 0 0 3px rgba(0,212,170,0.2); background:#1E293B; color:#FFFFFF !important; }
+  .l-input::placeholder { color:#64748B; font-weight:500; font-size:14px; }
   .l-input-r { padding-right:42px; } /* for eye icon */
 
   /* Main button */
@@ -441,8 +441,8 @@ export default function Login() {
       </div>
 
       {/* ══ RIGHT FORM ══ */}
-      <div className="l-form">
-        <div className="l-card">
+      <div className="login-dark-form">
+        <div className="login-dark-card">
           {/* Accent bar */}
           <div style={{ height:4, background:"linear-gradient(90deg,#00D4AA,#7C3AED,#60A5FA)" }} />
 
