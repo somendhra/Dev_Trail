@@ -1,0 +1,12 @@
+{
+    "venvPath": "ai-model",
+    "venv": "venv",
+    "include": [
+        "ai-model"
+    ],
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "venv"
+    ]
+}
