@@ -239,4 +239,79 @@ public class AIService {
             return err;
         }
     }
+
+    /**
+     * GigShield /fraud-check endpoint (Task 3/4).
+     * Returns parsed fraud score 0-100.
+     * Falls back to 30 (auto-approve) if AI is down.
+     */
+    @SuppressWarnings("unchecked")
+    public int callGigFraudCheck(String claimId, String workerId, String district,
+                                  String registeredDistrict, String claimedDisruption,
+                                  Double workerLat, Double workerLng,
+                                  int previousClaimsThisMonth,
+                                  double actualRainfall, double actualTemp,
+                                  double actualWind, int actualAqi) {
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("claim_id",                    claimId);
+            body.put("worker_id",                   workerId);
+            body.put("district",                    district != null ? district : registeredDistrict);
+            body.put("claimed_disruption",           claimedDisruption != null ? claimedDisruption : "UNKNOWN");
+            body.put("claim_date",                  java.time.LocalDate.now().toString());
+            body.put("registered_district",         registeredDistrict != null ? registeredDistrict : district);
+            body.put("previous_claims_this_month",  previousClaimsThisMonth);
+            body.put("weather_actual_rainfall",     actualRainfall);
+            body.put("weather_actual_temp",         actualTemp);
+            body.put("weather_actual_wind",         actualWind);
+            body.put("weather_actual_aqi",          actualAqi);
+            if (workerLat != null) body.put("worker_lat", workerLat);
+            if (workerLng != null) body.put("worker_lng", workerLng);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, jsonHeaders());
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    aiBaseUrl + "/fraud-check", HttpMethod.POST, request,
+                    (Class<Map<String, Object>>)(Class<?>)Map.class);
+
+            Map<String, Object> result = response.getBody();
+            if (result == null) return 30;
+            Object score = result.get("fraud_score");
+            if (score != null) return ((Number) score).intValue();
+            return 30;
+        } catch (Exception e) {
+            // AI engine down — safe default = auto-approve
+            org.slf4j.LoggerFactory.getLogger(AIService.class)
+                    .warn("[AIService] /fraud-check call failed: {} — defaulting to score 30", e.getMessage());
+            return 30;
+        }
+    }
+
+    /**
+     * GigShield /risk-score endpoint (Task 3/4).
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> callRiskScore(String district, String platform,
+                                              double avgWeeklyEarning,
+                                              int monthsActive, int priorClaims) {
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("district",             district);
+            body.put("platform",             platform);
+            body.put("avg_weekly_earning",   avgWeeklyEarning);
+            body.put("months_active",        monthsActive);
+            body.put("prior_claims",         priorClaims);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, jsonHeaders());
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    aiBaseUrl + "/risk-score", HttpMethod.POST, request,
+                    (Class<Map<String, Object>>)(Class<?>)Map.class);
+            return response.getBody();
+        } catch (Exception e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("error", "AI risk-score unavailable: " + e.getMessage());
+            err.put("risk_multiplier", 1.0);
+            err.put("weekly_premium", 40.0);
+            return err;
+        }
+    }
 }

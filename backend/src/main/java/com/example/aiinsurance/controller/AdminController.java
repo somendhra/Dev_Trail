@@ -109,6 +109,38 @@ public class AdminController {
         }
     }
 
+    @PostMapping("/admin/create")
+    public ResponseEntity<?> createAdmin(@RequestHeader("Authorization") String authHeader,
+                                         @RequestBody Admin newAdmin) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body(Map.of("error", "Missing or invalid Authorization header"));
+            }
+            String token = authHeader.substring(7);
+            if (!jwtUtil.validateToken(token) || !jwtUtil.extractIsAdmin(token)) {
+                return ResponseEntity.status(401).body(Map.of("error", "Invalid token"));
+            }
+
+            if (newAdmin.getEmail() == null || newAdmin.getEmail().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+            }
+            if (newAdmin.getPassword() == null || newAdmin.getPassword().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Password is required"));
+            }
+
+            String targetEmail = newAdmin.getEmail().toLowerCase().trim();
+            if (adminService.findByEmail(targetEmail).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Admin email already exists"));
+            }
+
+            newAdmin.setEmail(targetEmail);
+            Admin saved = adminService.save(newAdmin);
+            return ResponseEntity.ok(Map.of("message", "Admin created successfully", "email", saved.getEmail()));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
+    }
+
     // ------------ user management ----------------
     @GetMapping("/admin/users")
     public List<User> listUsers() {
@@ -471,12 +503,22 @@ public class AdminController {
                     if (cr.getUser() != null && cr.getUser().getState() != null) {
                         location = (cr.getUser().getDistrict() != null ? cr.getUser().getDistrict() + ", " : "") + cr.getUser().getState();
                     }
+                    boolean isFreeTrial = false;
+                    if (cr.getSubscription() != null) {
+                        isFreeTrial = allPayments.stream()
+                                .anyMatch(p -> p.getSubscription() != null 
+                                            && p.getSubscription().getId().equals(cr.getSubscription().getId()) 
+                                            && p.getMethod() == Payment.Method.FREE_TRIAL);
+                    }
+                    
+                    double finalAmtToDeduct = cr.getAmount();
+                    if (isFreeTrial) finalAmtToDeduct = 0.0;
 
                     Map<String, Object> debit = new LinkedHashMap<>();
                     debit.put("id", "disaster-" + cr.getId());
                     debit.put("type", "DEBIT");
                     debit.put("description", "Disaster payout – " + planName + " (" + cr.getSituation() + ")");
-                    debit.put("amount", cr.getAmount());
+                    debit.put("amount", finalAmtToDeduct);
                     debit.put("premiumAmount", 0.0); // Not a premium refund
                     debit.put("coverageAmount", cr.getAmount());
                     debit.put("userEmail", cr.getUser() != null ? cr.getUser().getEmail() : "—");
@@ -566,7 +608,16 @@ public class AdminController {
             for (com.example.aiinsurance.model.ClaimRequest cr : allDisasterClaims) {
                 // Sum Claims Paid (Disaster) - Approved status counts as a payout engagement
                 if (cr.isClaimed() || (cr.getStatus() != null && cr.getStatus().name().equals("APPROVED"))) {
-                    totalDisasterClaims += (cr.getAmount() != null ? cr.getAmount() : 0.0);
+                    boolean isFreeTrial = false;
+                    if (cr.getSubscription() != null) {
+                        isFreeTrial = allPayments.stream()
+                                .anyMatch(p -> p.getSubscription() != null 
+                                            && p.getSubscription().getId().equals(cr.getSubscription().getId()) 
+                                            && p.getMethod() == Payment.Method.FREE_TRIAL);
+                    }
+                    if (!isFreeTrial) {
+                        totalDisasterClaims += (cr.getAmount() != null ? cr.getAmount() : 0.0);
+                    }
                 }
             }
 

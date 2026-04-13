@@ -2,6 +2,9 @@ package com.example.aiinsurance.service;
 
 import com.example.aiinsurance.model.*;
 import com.example.aiinsurance.repository.*;
+import com.example.aiinsurance.service.TriggerService.BreachResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -12,204 +15,210 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AutoClaimService — Runs every hour to:
- * 1. Expire subscriptions that are older than 7 days (and notify user)
- * 2. Check for AI parametric disaster triggers in the user's location
- * 3. Auto-file a claim request on behalf of the user if a disaster is detected
- * 4. Skip users who already have a claim this week
+ * AutoClaimService — runs every hour via @Scheduled.
+ *
+ * Cycle per active subscription:
+ *  1. Auto-expire plans > 7 days old.
+ *  2. Skip workers who already have a claim this week.
+ *  3. Skip workers with no location set.
+ *  4. Call TriggerService.checkPrimaryTrigger(district, state).
+ *  5. If a threshold is breached → auto-create ClaimRequest.
+ *  6. Call Python AI /fraud-check endpoint via AIService.
+ *  7. If fraud score < 60 → auto-approve and credit wallet.
+ *     If fraud score >= 60 → keep PENDING for admin review.
+ *
+ * Separate 30-minute task re-evaluates all PENDING claims.
  */
 @Service
 public class AutoClaimService {
 
-    @Autowired private AIService aiService;
-    @Autowired private ClaimService claimService;
+    private static final Logger log = LoggerFactory.getLogger(AutoClaimService.class);
+
+    @Autowired private TriggerService         triggerService;
+    @Autowired private AIService              aiService;
+    @Autowired private ClaimService           claimService;
     @Autowired private SubscriptionRepository subscriptionRepository;
     @Autowired private ClaimRequestRepository claimRequestRepository;
     @Autowired private NotificationRepository notificationRepository;
 
-    /**
-     * Run every hour (3,600,000 ms). Monitors all ACTIVE subscriptions.
-     */
+    // ── Hourly disaster monitor ───────────────────────────────────────────────────
+
     @Scheduled(fixedRate = 3_600_000)
     @Transactional
     public void monitorAndFileClaims() {
-        System.out.println("[AutoClaimService] Running disaster monitoring at " + LocalDateTime.now());
+        log.info("[AutoClaimService] Running disaster monitoring at {}", LocalDateTime.now());
 
         List<Subscription> activeSubs = subscriptionRepository.findByStatus(Subscription.Status.ACTIVE);
-        System.out.println("[AutoClaimService] Found " + activeSubs.size() + " active subscriptions.");
+        log.info("[AutoClaimService] Found {} active subscriptions.", activeSubs.size());
 
         for (Subscription sub : activeSubs) {
             User user = sub.getUser();
-
-            // ── 1. Auto-expire plans older than 7 days ──────────────────────────
-            if (sub.getStartDate() != null && sub.getStartDate().plusDays(7).isBefore(LocalDateTime.now())) {
-                sub.setStatus(Subscription.Status.EXPIRED);
-                sub.setEndDate(LocalDateTime.now());
-                subscriptionRepository.save(sub);
-
-                // Admin keeps the premium — no refund needed. Just notify user.
-                sendNotification(user,
-                        "📅 Your " + sub.getPlan().getName() + " Plan Expired",
-                        "Your weekly " + sub.getPlan().getName() + " plan has expired. " +
-                        "No disaster occurred this week — your premium of ₹" + sub.getPlan().getWeeklyPremium() +
-                        " remains in the insurance fund. Purchase a new plan to stay protected next week.",
-                        "INFO");
-                continue;
-            }
-
-            // ── 2. Skip if user already has a claim this week ─────────────────
-            LocalDateTime oneWeekAgo = LocalDateTime.now().minusDays(7);
-            boolean alreadyClaimed = claimRequestRepository.findByUser(user).stream()
-                    .anyMatch(r -> r.getCreatedAt().isAfter(oneWeekAgo));
-
-            if (alreadyClaimed) {
-                System.out.println("[AutoClaimService] User " + user.getEmail() + " already has a claim this week. Skipping.");
-                continue;
-            }
-
-            // ── 3. Skip users with no location set ────────────────────────────
-            if (user.getState() == null || user.getState().isBlank()) {
-                System.out.println("[AutoClaimService] User " + user.getEmail() + " has no location set. Skipping.");
-                continue;
-            }
-
-            // ── 4. AI Parametric Trigger Check ────────────────────────────────
             try {
-                // Extract dynamic triggers from plan
-                List<Map<String, Object>> triggers = List.of();
-                try {
-                    String json = sub.getPlan().getParametricTriggers();
-                    if (json != null && !json.isBlank()) {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                        triggers = mapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
-                    }
-                } catch (Exception e) {
-                    System.err.println("[AutoClaimService] Failed to parse triggers for plan " + sub.getPlan().getName());
-                }
-
-                Map<String, Object> aiResult = aiService.checkParametric(
-                        user.getId(),
-                        user.getState(),
-                        user.getDistrict() != null ? user.getDistrict() : user.getState(),
-                        sub.getPlan().getName(),
-                        sub.getPlan().getCoverageAmount(),
-                        triggers
-                );
-
-                if (aiResult == null) continue;
-
-                boolean triggerMet = Boolean.TRUE.equals(aiResult.get("auto_trigger"));
-
-                if (triggerMet) {
-                    // Extract disaster type from AI response
-                    String disasterType = "Natural Disaster";
-                    String weatherDetails = "";
-
-                    Object paramCheckObj = aiResult.get("parametric_check");
-                    if (paramCheckObj instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> pc = (Map<String, Object>) paramCheckObj;
-                        
-                        Object reasons = pc.get("trigger_reasons");
-                        if (reasons instanceof List && !((List<?>)reasons).isEmpty()) {
-                            String firstReason = ((List<?>)reasons).get(0).toString();
-                            disasterType = firstReason;
-                            // If it's a Summer Alert, simplify the name for matching with plan triggers
-                            if (firstReason.toLowerCase().contains("summer") || firstReason.toLowerCase().contains("heat")) {
-                                disasterType = "Summer";
-                            }
-                        }
-                        
-                        Object severity = pc.get("severity");
-                        if (severity != null) weatherDetails += " [Severity: " + severity + "]";
-                    }
-
-                    System.out.println("[AutoClaimService] ⚠️ Disaster detected for " + user.getEmail()
-                            + " in " + user.getDistrict() + ", " + user.getState()
-                            + " — Type: " + disasterType);
-
-                    // Auto-file claim
-                    ClaimRequest req = new ClaimRequest();
-                    req.setUser(user);
-                    req.setSubscription(sub);
-                    req.setSituation("AI-AUTO: " + disasterType.toUpperCase());
-                    req.setDescription(
-                            "🤖 AI Auto-Filed Claim — Parametric trigger detected.\n" +
-                            "Location: " + (user.getMandal() != null ? user.getMandal() + ", " : "") +
-                            user.getDistrict() + ", " + user.getState() + "\n" +
-                            "Disaster: " + disasterType + weatherDetails + "\n" +
-                            "Plan: " + sub.getPlan().getName() + " (₹" + sub.getPlan().getWeeklyPremium() + "/week)\n" +
-                            "Coverage: ₹" + sub.getPlan().getCoverageAmount() + "\n" +
-                            "[AI ANALYTICS]: Parametric insurance trigger threshold exceeded."
-                    );
-                    req.setAmount(sub.getPlan().getCoverageAmount());
-                    req.setStatus(ClaimRequest.Status.PENDING);
-                    req.setCreatedAt(LocalDateTime.now());
-                    claimRequestRepository.save(req);
-
-                    // ── 🛡️ AUTO-APPROVE/REJECT CHECK ──
-                    String triggerResult = claimService.evaluateTriggers(req, user);
-                    if ("APPROVE".equals(triggerResult)) {
-                        claimService.approveRequestInternal(req);
-                        System.out.println("[AutoClaimService] ✅ Claim for " + user.getEmail() + " auto-approved based on plan triggers.");
-                    } else if ("REJECT".equals(triggerResult)) {
-                        claimService.rejectRequestInternal(req, "Weather thresholds for " + disasterType + " were not met at your location. AI auto-rejected.");
-                        System.out.println("[AutoClaimService] ❌ Claim for " + user.getEmail() + " auto-rejected based on plan triggers.");
-                    } else {
-                        // Notify user
-                        sendNotification(user,
-                                "⚠️ Disaster Detected — AI Auto-Filed Claim",
-                                "A " + disasterType + " has been detected in your area (" + user.getDistrict() + ", " + user.getState() + "). " +
-                                "Our AI has automatically filed a claim of ₹" + req.getAmount() + " on your behalf. " +
-                                "Awaiting final verification. You will be notified once approved.",
-                                "WARNING");
-
-                        // Notify admin
-                        notifyAdmin("🆕 New AI Claim — " + disasterType,
-                                "AI detected " + disasterType + " in " + user.getDistrict() + ", " + user.getState() +
-                                ". Claim of ₹" + req.getAmount() + " auto-filed for user " + user.getName() + " (" + user.getEmail() + "). " +
-                                "Review and approve in the Disaster Claims section.");
-                    }
-
-                } else {
-                    // System.out.println("[AutoClaimService] No trigger for user " + user.getEmail() + " in " + user.getState());
-                }
-
+                processSubscription(sub, user);
             } catch (Exception e) {
-                System.err.println("[AutoClaimService] Error checking user " + user.getId() + ": " + e.getMessage());
+                log.error("[AutoClaimService] Error processing subscription {} for {}: {}",
+                        sub.getId(), user.getEmail(), e.getMessage());
             }
         }
-        System.out.println("[AutoClaimService] Monitoring cycle complete.");
+
+        log.info("[AutoClaimService] Monitoring cycle complete.");
+    }
+
+    private void processSubscription(Subscription sub, User user) {
+        // 1. Auto-expire plans > 7 days
+        if (sub.getStartDate() != null && sub.getStartDate().plusDays(7).isBefore(LocalDateTime.now())) {
+            sub.setStatus(Subscription.Status.EXPIRED);
+            sub.setEndDate(LocalDateTime.now());
+            subscriptionRepository.save(sub);
+            sendNotification(user,
+                    "📅 Your " + sub.getPlan().getName() + " Plan Expired",
+                    "Your weekly " + sub.getPlan().getName() + " plan has expired. " +
+                    "Premium of ₹" + sub.getPlan().getWeeklyPremium() + " remains in the insurance fund. " +
+                    "Purchase a new plan to stay protected.", "INFO");
+            return;
+        }
+
+        // 2. Skip if already has a claim this week
+        LocalDateTime oneWeekAgo = LocalDateTime.now().minusDays(7);
+        boolean alreadyClaimed = claimRequestRepository.findByUser(user).stream()
+                .anyMatch(r -> r.getCreatedAt() != null && r.getCreatedAt().isAfter(oneWeekAgo));
+        if (alreadyClaimed) {
+            log.debug("[AutoClaimService] {} already has a claim this week — skip.", user.getEmail());
+            return;
+        }
+
+        // 3. Skip users with no location
+        if (user.getState() == null || user.getState().isBlank()) {
+            log.debug("[AutoClaimService] {} has no location set — skip.", user.getEmail());
+            return;
+        }
+
+        String district = user.getDistrict() != null && !user.getDistrict().isBlank()
+                        ? user.getDistrict() : user.getState();
+        String state    = user.getState();
+
+        // 4. Run parametric trigger engine (TriggerService → WeatherService)
+        BreachResult breach = triggerService.checkPrimaryTrigger(district, state);
+        if (breach == null) {
+            log.debug("[AutoClaimService] No breach for {} in {}/{}", user.getEmail(), district, state);
+            return;
+        }
+
+        log.info("[AutoClaimService] ⚠️ Breach detected for {} — {}", user.getEmail(), breach.description());
+
+        // 5. Auto-file a ClaimRequest
+        ClaimRequest req = new ClaimRequest();
+        req.setUser(user);
+        req.setSubscription(sub);
+        req.setSituation("AI-AUTO: " + breach.situation());
+        req.setDescription(
+                "🤖 AI Auto-Filed Claim — Parametric trigger breached.\n" +
+                "Location: " + (user.getMandal() != null ? user.getMandal() + ", " : "") +
+                district + ", " + state + "\n" +
+                "Event: " + breach.description() + "\n" +
+                "Plan: " + sub.getPlan().getName() + " (₹" + sub.getPlan().getWeeklyPremium() + "/week)\n" +
+                "Coverage: ₹" + sub.getPlan().getCoverageAmount() + "\n" +
+                "[PARAMETRIC ENGINE]: Threshold exceeded — auto-claim initiated."
+        );
+        req.setAmount(sub.getPlan().getCoverageAmount());
+        req.setStatus(ClaimRequest.Status.PENDING);
+        req.setCreatedAt(LocalDateTime.now());
+        claimRequestRepository.save(req);
+
+        // 6. AI fraud check → decide auto-approve vs PENDING
+        int fraudScore = runFraudCheck(req, user, breach, district);
+        log.info("[AutoClaimService] Fraud score for claim {}: {}", req.getId(), fraudScore);
+
+        if (fraudScore < 60) {
+            // Auto-approve
+            claimService.approveRequestInternal(req);
+            log.info("[AutoClaimService] ✅ Claim {} AUTO-APPROVED (fraud score {})", req.getId(), fraudScore);
+        } else {
+            // Keep PENDING — notify user + log
+            sendNotification(user,
+                    "⚠️ Disaster Detected — Claim Under Review",
+                    "A " + breach.situation() + " was detected in your area (" + district + ", " + state + "). " +
+                    "A claim of ₹" + req.getAmount() + " has been filed. " +
+                    "AI fraud score: " + fraudScore + " — pending admin review.",
+                    "WARNING");
+            log.warn("[AutoClaimService] ⏳ Claim {} kept PENDING — fraud score {}", req.getId(), fraudScore);
+        }
     }
 
     /**
-     * Run every 30 minutes. 
-     * Scans PENDING claims and tries to auto-verify them using the AI trigger logic.
-     * This fulfills the 'AI check and verify from admin' requirement.
+     * Calls the Python AI /fraud-check endpoint.
+     * Returns score 0–100; defaults to 30 (approve) if AI is unreachable.
      */
+    private int runFraudCheck(ClaimRequest req, User user, BreachResult breach, String district) {
+        try {
+            // Count recent claims for duplicate-flood detection
+            LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+            int claimsLast30d = (int) claimRequestRepository.findByUser(user).stream()
+                    .filter(r -> r.getCreatedAt() != null && r.getCreatedAt().isAfter(thirtyDaysAgo))
+                    .count();
+
+            Map<String, Object> result = aiService.detectFraud(
+                    user.getId(),
+                    breach.situation(),
+                    district,
+                    user.getState() != null ? user.getState() : district, // registered state
+                    true,  // has active subscription (already confirmed above)
+                    7,     // days since last claim (we checked at the threshold)
+                    breach.actualValue() / Math.max(1, breach.trigger().getThreshold()), // weather risk index ratio
+                    req.getAmount(),
+                    req.getAmount(),
+                    0,     // account age — not tracked yet
+                    claimsLast30d
+            );
+
+            // Parse fraudScore from the nested response shape
+            Object fraudAnal = result.get("fraud_analysis");
+            if (fraudAnal instanceof Map<?,?> fa) {
+                Object score = fa.get("fraud_score");
+                if (score != null) {
+                    return (int)(Double.parseDouble(score.toString()) * 100);
+                }
+            }
+            // Flat response fallback
+            Object score = result.get("fraud_score");
+            if (score != null) return (int)(Double.parseDouble(score.toString()) * 100);
+
+            // Direct 0-100 score
+            Object pctScore = result.get("score");
+            if (pctScore != null) return Integer.parseInt(pctScore.toString());
+
+        } catch (Exception e) {
+            log.warn("[AutoClaimService] AI fraud check failed: {} — defaulting to score 30 (auto-approve)", e.getMessage());
+        }
+        return 30; // safe default → auto-approve
+    }
+
+    // ── 30-minute pending claim re-evaluation ─────────────────────────────────────
+
     @Scheduled(fixedRate = 1_800_000)
     @Transactional
     public void processPendingClaims() {
-        System.out.println("[AutoClaimService] Running periodic pending claim verification...");
-        List<ClaimRequest> pendingClaims = claimRequestRepository.findByStatus(ClaimRequest.Status.PENDING);
-        
-        for (ClaimRequest req : pendingClaims) {
+        log.debug("[AutoClaimService] Running periodic pending claim verification...");
+        List<ClaimRequest> pending = claimRequestRepository.findByStatus(ClaimRequest.Status.PENDING);
+
+        for (ClaimRequest req : pending) {
             try {
                 User user = req.getUser();
-                String triggerResult = claimService.evaluateTriggers(req, user);
-                
-                if ("APPROVE".equals(triggerResult)) {
+                String result = claimService.evaluateTriggers(req, user);
+                if ("APPROVE".equals(result)) {
                     claimService.approveRequestInternal(req);
-                    System.out.println("[AutoClaimService] Periodic Check: ✅ Auto-approved pending claim " + req.getId() + " for " + user.getEmail());
-                } else if ("REJECT".equals(triggerResult)) {
-                    claimService.rejectRequestInternal(req, "AI automated verification: Weather thresholds not met at this time.");
-                    System.out.println("[AutoClaimService] Periodic Check: ❌ Auto-rejected pending claim " + req.getId() + " for " + user.getEmail());
+                    log.info("[AutoClaimService] Periodic: ✅ Auto-approved claim {} for {}", req.getId(), user.getEmail());
+                } else if ("REJECT".equals(result)) {
+                    claimService.rejectRequestInternal(req, "AI automated verification: weather thresholds not met.");
+                    log.info("[AutoClaimService] Periodic: ❌ Auto-rejected claim {} for {}", req.getId(), user.getEmail());
                 }
             } catch (Exception e) {
-                System.err.println("[AutoClaimService] Error verifying pending claim " + req.getId() + ": " + e.getMessage());
+                log.error("[AutoClaimService] Error verifying claim {}: {}", req.getId(), e.getMessage());
             }
         }
     }
+
+    // ── Helper ────────────────────────────────────────────────────────────────────
 
     private void sendNotification(User user, String title, String message, String type) {
         try {
@@ -220,12 +229,7 @@ public class AutoClaimService {
             n.setType(type);
             notificationRepository.save(n);
         } catch (Exception e) {
-            System.err.println("[AutoClaimService] Failed to save notification: " + e.getMessage());
+            log.error("[AutoClaimService] Failed to save notification: {}", e.getMessage());
         }
-    }
-
-    private void notifyAdmin(String title, String message) {
-        // Admin notifications logged to server console — can be extended to a separate admin notification table
-        System.out.println("[ADMIN ALERT] " + title + " — " + message);
     }
 }

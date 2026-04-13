@@ -40,6 +40,7 @@ public class ClaimRequestController {
     @Autowired private UserService userService;
     @Autowired private JwtUtil jwtUtil;
     @Autowired private PaymentRepository paymentRepository;
+    @Autowired private EmailService emailService;
 
     @PostMapping
     public ResponseEntity<?> submitRequest(
@@ -194,36 +195,74 @@ public class ClaimRequestController {
             return ResponseEntity.badRequest().body(Map.of("error", "You can only claim one payout per week. Please wait until next week."));
         }
 
-        User managedUser = userService.findById(user.getId()).orElse(user);
-        managedUser.setWalletBalance(managedUser.getWalletBalance() + req.getAmount());
-        userService.updateUser(managedUser);
-
-        try {
-            List<Admin> admins = adminRepository.findAll();
-            if (!admins.isEmpty()) {
-                Admin admin = admins.get(0);
-                double newAdminBalance = admin.getWalletBalance() - req.getAmount();
-                admin.setWalletBalance(Math.max(0.0, newAdminBalance));
-                adminRepository.save(admin);
-            }
-        } catch (Exception e) {
-            System.err.println("Warning: Could not deduct from admin wallet: " + e.getMessage());
+        boolean isFreeTrial = false;
+        Subscription originalSub = req.getSubscription();
+        if (originalSub != null) {
+            isFreeTrial = paymentRepository.findAll().stream()
+                    .anyMatch(p -> p.getSubscription() != null 
+                                && p.getSubscription().getId().equals(originalSub.getId()) 
+                                && p.getMethod() == Payment.Method.FREE_TRIAL);
         }
+
+        User managedUser = userService.findById(user.getId()).orElse(user);
+        
+        if (!isFreeTrial) {
+            // Actual money transaction for Premium users
+            managedUser.setWalletBalance(managedUser.getWalletBalance() + req.getAmount());
+            try {
+                List<Admin> admins = adminRepository.findAll();
+                if (!admins.isEmpty()) {
+                    Admin admin = admins.get(0);
+                    double newAdminBalance = admin.getWalletBalance() - req.getAmount();
+                    admin.setWalletBalance(Math.max(0.0, newAdminBalance));
+                    adminRepository.save(admin);
+                }
+            } catch (Exception e) {
+                System.err.println("Warning: Could not deduct from admin wallet: " + e.getMessage());
+            }
+        }
+        userService.updateUser(managedUser);
 
         req.setClaimed(true);
         claimRequestRepository.save(req);
 
-        Subscription sub = req.getSubscription();
-        sub.setStatus(Subscription.Status.EXPIRED);
-        subscriptionRepository.save(sub);
+        if (originalSub != null) {
+            originalSub.setStatus(Subscription.Status.EXPIRED);
+            subscriptionRepository.save(originalSub);
+        }
 
         Notification n = new Notification();
         n.setUser(managedUser);
-        n.setTitle("Payout Successful!");
-        n.setMessage("₹" + req.getAmount() + " has been added to your wallet. Your current plan has expired; please purchase a new one for future coverage.");
-        n.setType("SUCCESS");
+        if (isFreeTrial) {
+            n.setTitle("Simulation: Claim Approved! 🌩️");
+            n.setMessage("Your area was affected! Had you been on a paid plan, you would have received ₹" + req.getAmount() + " today. Upgrade now to get real payouts for future disasters!");
+            n.setType("INFO");
+
+            if (managedUser.getEmail() != null && !managedUser.getEmail().isEmpty()) {
+                String emailBody = "Hello " + managedUser.getName() + ",\n\n" +
+                        "Our AI Risk Monitoring system successfully tracked a disaster (" + req.getSituation() + ") in your location and processed a claim.\n\n" +
+                        "Because you are currently relying on a Free Trial policy, no real funds were transferred to your wallet. However, had you subscribed to a paid premium plan, you would have instantly received a guaranteed payout of ₹" + req.getAmount() + " automatically deposited directly into your account.\n\n" +
+                        "Upgrade your parametric coverage today so that next time a disaster disrupts your work, you get the full payout without any paperwork.\n\n" +
+                        "Stay safe,\nTeam WageWings";
+                
+                emailService.sendEmail(managedUser.getEmail(), "Simulated Payout: " + req.getSituation() + " Claim", emailBody);
+            }
+        } else {
+            n.setTitle("Payout Successful!");
+            n.setMessage("₹" + req.getAmount() + " has been added to your wallet. Your current plan has expired; please purchase a new one for future coverage.");
+            n.setType("SUCCESS");
+
+            if (managedUser.getEmail() != null && !managedUser.getEmail().isEmpty()) {
+                String emailBody = "Hello " + managedUser.getName() + ",\n\n" +
+                        "Your claim payout of ₹" + req.getAmount() + " for (" + req.getSituation() + ") has been successfully transferred to your WageWings wallet!\n\n" +
+                        "Your current insurance cycle is now complete and the plan has expired. To stay protected against future disruptions, please log into your account and purchase a new policy.\n\n" +
+                        "Stay safe,\nTeam WageWings";
+                
+                emailService.sendEmail(managedUser.getEmail(), "Payout Transferred: ₹" + req.getAmount(), emailBody);
+            }
+        }
         notificationRepository.save(n);
 
-        return ResponseEntity.ok(Map.of("message", "Payout claimed successfully", "newBalance", managedUser.getWalletBalance()));
+        return ResponseEntity.ok(Map.of("message", "Payout processed successfully", "newBalance", managedUser.getWalletBalance()));
     }
 }

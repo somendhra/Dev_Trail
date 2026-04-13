@@ -19,7 +19,7 @@ public class Payment {
     private User user;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "subscription_id", nullable = false)
+    @JoinColumn(name = "subscription_id", nullable = true)
     private Subscription subscription;
 
     @Column(nullable = false)

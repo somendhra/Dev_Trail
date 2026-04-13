@@ -56,6 +56,13 @@ export async function adminChangeCredentials(updates) {
   });
 }
 
+export async function adminCreateAdmin(adminBody) {
+  return request('/api/admin/create', {
+    method: 'POST',
+    body: JSON.stringify(adminBody),
+  });
+}
+
 export async function loginUser({ identifier, password }) {
   return request('/api/auth/login', {
     method: 'POST',
@@ -278,9 +285,23 @@ export async function checkParametric() {
   return request('/api/ai/parametric/check', { method: 'GET' });
 }
 
-/** AI weather data for user location */
+/** AI weather data for user location (AI engine) */
 export async function getAIWeather() {
   return request('/api/ai/weather', { method: 'GET' });
+}
+
+// ── WeatherService endpoints (Java backend, real OWM data) ───────────────────
+
+/** Live weather for any district (public, no auth) */
+export async function getWeatherForDistrict(district, state = '') {
+  const params = new URLSearchParams({ district });
+  if (state) params.set('state', state);
+  return request(`/api/weather/check?${params}`, { method: 'GET', skipAuth: true });
+}
+
+/** Live weather for the logged-in worker's registered district */
+export async function getWorkerWeather() {
+  return request('/api/weather/current', { method: 'GET' });
 }
 
 /** Full AI insights dashboard */
@@ -330,4 +351,6 @@ export default {
   getAIPremium, getAIRisk, detectFraud, checkParametric,
   getAIWeather, getAIDashboard, getAIPlanRecommendation,
   getFraudStats, getAllTriggers,
+  // WeatherService (Java backend)
+  getWeatherForDistrict, getWorkerWeather,
 };

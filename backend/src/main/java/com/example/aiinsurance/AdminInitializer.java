@@ -3,6 +3,7 @@ package com.example.aiinsurance;
 import com.example.aiinsurance.model.Admin;
 import com.example.aiinsurance.model.Partner;
 import com.example.aiinsurance.service.AdminService;
+import com.example.aiinsurance.service.TriggerService;
 import com.example.aiinsurance.repository.PartnerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -23,6 +24,9 @@ public class AdminInitializer implements CommandLineRunner {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private TriggerService triggerService;
 
     private void ensureAdminCredentials(String email, String password) {
         Optional<Admin> adminOpt = adminService.findByEmail(email);
@@ -75,5 +79,8 @@ public class AdminInitializer implements CommandLineRunner {
             partnerRepository.saveAll(defaults);
             System.out.println("Created " + defaults.size() + " default partner platforms");
         }
+
+        // Seed default parametric trigger rules
+        triggerService.seedDefaultTriggers();
     }
 }

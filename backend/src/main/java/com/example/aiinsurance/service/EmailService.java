@@ -73,4 +73,35 @@ public class EmailService {
         int otp = 100000 + random.nextInt(900000);
         return String.valueOf(otp);
     }
+
+    public void sendEmail(String to, String subject, String body) {
+        try {
+            if (to == null || to.trim().isEmpty()) {
+                logger.warn("Recipient email is required for generic sendEmail");
+                return;
+            }
+            if (senderEmail == null || senderEmail.trim().isEmpty()) {
+                if (mockEmailEnabled) {
+                    logger.warn("Email service not configured. Mock Mode. To: {}, Subject: {}, Body: {}", to, subject, body);
+                    return;
+                }
+                logger.warn("Email service is not configured. Set MAIL_USERNAME and MAIL_PASSWORD.");
+                return;
+            }
+
+            logger.info("Attempting to send email to: {}", to);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            helper.setFrom(senderEmail.trim());
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, false);
+
+            mailSender.send(message);
+            logger.info("Email sent successfully to: {}", to);
+        } catch (Exception e) {
+            logger.error("Error sending generic email to {}: {}", to, e.getMessage(), e);
+        }
+    }
 }

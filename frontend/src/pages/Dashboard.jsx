@@ -1,12 +1,67 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import DashboardCard from "../components/DashboardCard";
 import NotificationCard from "../components/NotificationCard";
 import { IconBell, IconChat, IconCard, IconShield, IconMoney } from "../components/Icons";
-import { getCurrentUser, getDashboardSummary, getPartners, getMyNotifications } from "../api";
+import { FaLanguage } from "react-icons/fa";
+import {
+  getCurrentUser, getDashboardSummary, getPartners, getMyNotifications,
+  getWorkerWeather,
+} from "../api";
 
-const defaultTheme = { gradient: "linear-gradient(135deg,#16a34a,#4ade80)", light: "#f0fdf4", accent: "#16a34a", banner: null };
+const TRANSLATIONS = {
+  en: {
+    welcomeBack: "Welcome back",
+    weeklyPremium: "Weekly Premium",
+    coverageAmount: "Coverage Amount",
+    nextPayment: "Next Payment",
+    yourWallet: "Your Wallet",
+    recentPayments: "💳 Recent Payments",
+    noPlanYet: "You Don't Have a Plan Yet",
+    activePlan: "Active",
+    freeTrial: "Free Trial",
+    lastLogin: "Last login:"
+  },
+  hi: {
+    welcomeBack: "वापसी पर स्वागत है",
+    weeklyPremium: "साप्ताहिक प्रीमियम",
+    coverageAmount: "कवरेज राशि",
+    nextPayment: "अगला भुगतान",
+    yourWallet: "आपका वॉलेट",
+    recentPayments: "💳 हाल के भुगतान",
+    noPlanYet: "आपके पास अभी तक कोई योजना नहीं है",
+    activePlan: "सक्रिय",
+    freeTrial: "निःशुल्क परीक्षण",
+    lastLogin: "अंतिम बार चालू:"
+  },
+  ta: {
+    welcomeBack: "மீண்டும் வருக",
+    weeklyPremium: "வாராந்திர பிரீமியம்",
+    coverageAmount: "காப்பீட்டு தொகை",
+    nextPayment: "அடுத்த கட்டணம்",
+    yourWallet: "உங்களின் பணப்பை",
+    recentPayments: "💳 சமீபத்திய கொடுப்பனவுகள்",
+    noPlanYet: "உங்களிடம் இன்னும் எந்த திட்டமும் இல்லை",
+    activePlan: "செயலிலுள்ளது",
+    freeTrial: "இலவச சோதனை",
+    lastLogin: "கடைசி உள்நுழைவு:"
+  },
+  te: {
+    welcomeBack: "తిరిగి స్వాగతం",
+    weeklyPremium: "వారపు ప్రీమియం",
+    coverageAmount: "కవరేజ్ మొత్తం",
+    nextPayment: "తదుపరి చెల్లింపు",
+    yourWallet: "మీ వాలెట్",
+    recentPayments: "💳 ఇటీవలి చెల్లింపులు",
+    noPlanYet: "మీకు ఇంకా ప్లాన్ లేదు",
+    activePlan: "చురుకుగా",
+    freeTrial: "ఉచిత ట్రయల్",
+    lastLogin: "చివరి లాగిన్:"
+  }
+};
+
+const defaultTheme = { gradient: "linear-gradient(135deg,#00D4AA,#7C3AED)", light: "rgba(0,212,170,0.08)", accent: "#00D4AA", banner: null };
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
@@ -65,27 +120,32 @@ const STYLES = `
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [lang, setLang] = useState("en");
+  const t = (key) => TRANSLATIONS[lang]?.[key] || TRANSLATIONS["en"][key] || key;
+
   const [user, setUser]         = useState(null);
   const [summary, setSummary]   = useState(null);
   const [loadingSum, setLoadingSum] = useState(true);
   const [themeDict, setThemeDict] = useState({});
   const [partners, setPartners] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [dashboardData] = useState({
-    notifications: [
-      { title: "Heavy rain detected in your zone", desc: "System initiated claim process", time: "10m ago" },
-      { title: "₹600 payout processed",            desc: "Your recent claim was approved", time: "2d ago" },
-      { title: "Weekly premium due",               desc: "Payment reminder for this week", time: "1d ago" },
-    ],
-    claims: [
-      { title: "Heavy Rain Detected", amount: 600, status: "Processing" },
-      { title: "Claim Approved",      amount: 600, status: "Approved" },
-    ],
-    chats: 3,
-    lastLogin: new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true }),
-  });
   const [dashboardClaims, setDashboardClaims] = useState([]);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [payments, setPayments] = useState([]);
+
+  // GigShield: Live weather alert state
+  const [weather, setWeather]     = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const weatherIntervalRef = useRef(null);
+
+  // Animated counter for earnings
+  const [displayedEarnings, setDisplayedEarnings] = useState(0);
+  const earningsTargetRef = useRef(0);
+
+  const [dashboardData] = useState({
+    lastLogin: new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true }),
+  });
+
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -123,6 +183,25 @@ export default function Dashboard() {
       }).catch(() => {});
     });
 
+    // Fetch Payout/Payment history
+    import("../api").then(api => {
+      if (api.getMyPayments) {
+        api.getMyPayments().then(res => {
+          if (Array.isArray(res)) setPayments(res.slice(0, 10));
+        }).catch(() => {});
+      }
+    });
+
+    // Live weather polling — every 3 minutes
+    const fetchWeather = () => {
+      getWorkerWeather()
+        .then(res => { if (res && !res.error) setWeather(res); })
+        .catch(() => {})
+        .finally(() => setWeatherLoading(false));
+    };
+    fetchWeather();
+    weatherIntervalRef.current = setInterval(fetchWeather, 3 * 60 * 1000);
+
     // Fetch Chat Unread Count
     import("../api").then(api => {
       api.getMyQueries().then(res => {
@@ -154,8 +233,25 @@ export default function Dashboard() {
 
     return () => {
       window.removeEventListener('chatRead', handleReadEvent);
+      if (weatherIntervalRef.current) clearInterval(weatherIntervalRef.current);
     };
   }, [navigate]);
+
+  // Animated earnings counter
+  useEffect(() => {
+    const approvedTotal = dashboardClaims
+      .filter(c => c.status === 'APPROVED')
+      .reduce((s, c) => s + (c.amount || 0), 0);
+    earningsTargetRef.current = approvedTotal;
+    let start = 0;
+    const step = Math.ceil(approvedTotal / 40);
+    const timer = setInterval(() => {
+      start = Math.min(start + step, approvedTotal);
+      setDisplayedEarnings(start);
+      if (start >= approvedTotal) clearInterval(timer);
+    }, 30);
+    return () => clearInterval(timer);
+  }, [dashboardClaims]);
 
   // Helper derived values from backend summary
   const activePlan = summary?.activePlan || null;
@@ -170,8 +266,8 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f8fafc" }}>
-        <div style={{ width: 36, height: 36, border: "3px solid #e2e8f0", borderTopColor: "#16a34a", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0A1020" }}>
+        <div style={{ width: 36, height: 36, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#00D4AA", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
       </div>
     );
   }
@@ -184,7 +280,7 @@ export default function Dashboard() {
       className="dash-root"
       style={{
         minHeight: "100vh",
-        background: "#f8fafc",
+        background: "transparent",
         "--accent": theme.accent,
         "--accent-light": theme.light,
         "--gradient": theme.gradient,
@@ -216,6 +312,30 @@ export default function Dashboard() {
           background: "linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.65) 100%)",
         }} />
 
+        {/* Global UI layer inside Banner */}
+        <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
+          <div className="relative">
+            <select 
+              value={lang} 
+              onChange={(e) => setLang(e.target.value)}
+              style={{
+                appearance: "none", background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)",
+                border: "1px solid rgba(255,255,255,0.3)", color: "#fff",
+                padding: "8px 36px 8px 36px", borderRadius: 12, outline: "none",
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              <option value="en" style={{color: "#000"}}>EN</option>
+              <option value="hi" style={{color: "#000"}}>HI</option>
+              <option value="ta" style={{color: "#000"}}>TA</option>
+              <option value="te" style={{color: "#000"}}>TE</option>
+            </select>
+            <div style={{ pointerEvents: "none", position: "absolute", inset: "0 0 0 10px", display: "flex", alignItems: "center" }}>
+              <FaLanguage style={{ color: "#fff", fontSize: 16 }} />
+            </div>
+          </div>
+        </div>
+
         {/* banner content — bottom left */}
         <div className="banner-content" style={{
           position: "absolute",
@@ -240,7 +360,7 @@ export default function Dashboard() {
               color: "#ffffff", margin: 0, lineHeight: 1.15,
               textShadow: "0 2px 14px rgba(0,0,0,0.5)",
             }}>
-              Welcome back, {user.name.split(" ")[0]}!
+              {t("welcomeBack")}, {user.name.split(" ")[0]}!
             </h1>
 
             <div style={{
@@ -248,7 +368,7 @@ export default function Dashboard() {
               color: "rgba(255,255,255,0.9)",
               textShadow: "0 1px 4px rgba(0,0,0,0.3)",
             }}>
-              Last login: {dashboardData.lastLogin}
+              {t("lastLogin")} {dashboardData.lastLogin}
             </div>
           </div>
 
@@ -330,34 +450,34 @@ export default function Dashboard() {
           {loadingSum ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
               {[0,1,2,3].map(i => (
-                <div key={i} style={{ height: 90, borderRadius: 16, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "800px 100%", animation: "shimmer 1.4s infinite" }} />
+                <div key={i} style={{ height: 110, borderRadius: 18, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", animation: "shimmer 1.4s infinite" }} />
               ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <DashboardCard
-                title="Weekly Premium"
+                title={t("weeklyPremium")}
                 value={premium > 0 ? `₹${premium}` : "—"}
-                small={subStatus === "TRIAL" ? "🎁 Free Trial" : subStatus === "ACTIVE" ? "🟢 Active" : subStatus}
+                small={subStatus === "TRIAL" ? `🎁 ${t("freeTrial")}` : subStatus === "ACTIVE" ? `🟢 ${t("activePlan")}` : subStatus}
                 icon={<IconShield className="w-5 h-5" />}
                 accent="#6366f1"
               />
               <DashboardCard
-                title="Coverage Amount"
+                title={t("coverageAmount")}
                 value={cov > 0 ? `₹${cov.toLocaleString("en-IN")}` : "—"}
                 small="Policy Coverage"
                 icon={<IconCard className="w-5 h-5" />}
                 accent="#ec4899"
               />
               <DashboardCard
-                title="Next Payment"
+                title={t("nextPayment")}
                 value={nextPay}
-                small={risk !== "—" ? `${risk} Risk` : "No active plan"}
+                small={risk !== "—" ? `${risk} Risk` : ""}
                 icon={<IconBell className="w-5 h-5" />}
                 accent="#f59e0b"
               />
               <DashboardCard
-                title="Your Wallet"
+                title={t("yourWallet")}
                 value={`₹${(user.walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 small={`Pool: ₹${(summary?.totalInsuranceFund || 0).toLocaleString("en-IN")}`}
                 icon={<IconMoney className="w-5 h-5" />}
@@ -370,18 +490,18 @@ export default function Dashboard() {
         {/* Recent Payments from backend */}
         {!loadingSum && summary?.recentPayments?.length > 0 && (
           <div className="dash-section" style={{ marginBottom: 32 }}>
-            <div className="dash-card" style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 32px rgba(15,23,42,0.08)" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, overflow: "hidden" }}>
               <div style={{ padding: "20px 24px" }}>
-                <h3 style={{ fontFamily: "Sora,sans-serif", fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>💳 Recent Payments</h3>
+                <h3 style={{ fontFamily: "Sora,sans-serif", fontSize: 16, fontWeight: 700, color: "#F1F5F9", marginBottom: 16 }}>{t("recentPayments")}</h3>
                 {summary.recentPayments.map((p, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f1f5f9", fontSize: 14 }}>
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 14 }}>
                     <div>
-                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{p.plan} Plan</span>
-                      <span style={{ color: "#94a3b8", marginLeft: 8, fontSize: 12 }}>{p.method.replace("_"," ")} · {new Date(p.date).toLocaleDateString("en-IN")}</span>
+                      <span style={{ fontWeight: 700, color: "#F1F5F9" }}>{p.plan} Plan</span>
+                      <span style={{ color: "#475569", marginLeft: 8, fontSize: 12 }}>{p.method.replace("_"," ")} · {new Date(p.date).toLocaleDateString("en-IN")}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{p.amount === 0 ? "Free" : `₹${p.amount}`}</span>
-                      <span style={{ padding: "3px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: p.status === "SUCCESS" ? "#dcfce7" : "#fee2e2", color: p.status === "SUCCESS" ? "#16a34a" : "#dc2626" }}>{p.status}</span>
+                      <span style={{ fontWeight: 700, color: "#F1F5F9" }}>{p.amount === 0 ? "Free" : `₹${p.amount}`}</span>
+                      <span style={{ padding: "3px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, background: p.status === "SUCCESS" ? "rgba(0,212,170,0.15)" : "rgba(239,68,68,0.15)", color: p.status === "SUCCESS" ? "#00D4AA" : "#F87171" }}>{p.status}</span>
                     </div>
                   </div>
                 ))}
@@ -393,14 +513,161 @@ export default function Dashboard() {
         {/* No plan CTA */}
         {!loadingSum && subStatus === "NONE" && (
           <div className="dash-section" style={{ marginBottom: 32 }}>
-            <div style={{ background: "linear-gradient(135deg,#7c3aed,#a78bfa)", borderRadius: 20, padding: "32px", textAlign: "center", color: "#fff" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>🛡️</div>
-              <h3 style={{ fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 22, marginBottom: 8 }}>You Don't Have a Plan Yet</h3>
-              <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: 20 }}>Get covered today — start with a 7-day free trial, no payment required.</p>
-              <button onClick={() => navigate("/plans")} style={{ background: "#fff", color: "#7c3aed", border: "none", borderRadius: 12, padding: "13px 32px", fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>Browse Plans →</button>
+            <div style={{ background: "linear-gradient(135deg,rgba(0,212,170,0.12),rgba(124,58,237,0.12))", border: "1px solid rgba(0,212,170,0.25)", borderRadius: 22, padding: "40px 32px", textAlign: "center" }}>
+              <div style={{ fontSize: 52, marginBottom: 14 }}>🛡️</div>
+              <h3 style={{ fontFamily: "Sora,sans-serif", fontWeight: 900, fontSize: 22, color: "#F1F5F9", marginBottom: 8 }}>{t("noPlanYet")}</h3>
+              <p style={{ color: "#64748B", marginBottom: 24, fontSize: 14 }}>Get covered today — start with a 7-day free trial, no payment required.</p>
+              <button onClick={() => navigate("/plans")} style={{ background: "linear-gradient(135deg,#00D4AA,#7C3AED)", color: "#060B18", border: "none", borderRadius: 12, padding: "13px 32px", fontFamily: "Sora,sans-serif", fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: "0 4px 20px rgba(0,212,170,0.3)" }}>Browse Plans →</button>
             </div>
           </div>
         )}
+
+        {/* ─────────────────────────────────────────────────────────────────
+             SECTION 1 + 3:  Coverage Status  ·  Live Disruption Alert
+        ───────────────────────────────────────────────────────────────── */}
+        <div className="dash-section" style={{ marginBottom: 32 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+            {/* Coverage Status Card */}
+            <div style={{
+              background: "rgba(255,255,255,0.03)", borderRadius: 20, padding: "24px 24px",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <span style={{ fontSize: 22 }}>🛡️</span>
+                <h3 style={{ fontFamily: "Sora,sans-serif", fontWeight: 700, fontSize: 16, color: "#F1F5F9", margin: 0 }}>
+                  Coverage Status
+                </h3>
+              </div>
+              {loadingSum ? (
+                <div style={{ height: 60, background: "rgba(255,255,255,0.04)", borderRadius: 12, animation: "shimmer 1.4s infinite" }} />
+              ) : (
+                <>
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "6px 16px", borderRadius: 20, marginBottom: 12,
+                    background: subStatus === "ACTIVE" || subStatus === "TRIAL" ? "rgba(0,212,170,0.15)" : "rgba(239,68,68,0.15)",
+                    border: `1px solid ${subStatus === "ACTIVE" || subStatus === "TRIAL" ? "rgba(0,212,170,0.3)" : "rgba(239,68,68,0.3)"}`,
+                  }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: subStatus === "ACTIVE" || subStatus === "TRIAL" ? "#00D4AA" : "#F87171" }} />
+                    <span style={{ fontSize: 12, fontWeight: 800, color: subStatus === "ACTIVE" || subStatus === "TRIAL" ? "#00D4AA" : "#F87171", letterSpacing: "1px" }}>
+                      {subStatus === "ACTIVE" ? "ACTIVE" : subStatus === "TRIAL" ? "FREE TRIAL" : "NO PLAN"}
+                    </span>
+                  </div>
+                  {subStatus === "ACTIVE" || subStatus === "TRIAL" ? (
+                    <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.8 }}>
+                      <div>📋 Plan: <strong style={{ color: "#F1F5F9" }}>{planName}</strong></div>
+                      <div>📅 Valid: <strong style={{ color: "#F1F5F9" }}>Mon – Sun (this week)</strong></div>
+                      <div>💰 Coverage: <strong style={{ color: "#00D4AA" }}>₹{cov.toLocaleString("en-IN")}</strong></div>
+                    </div>
+                  ) : (
+                    <button onClick={() => navigate("/plans")} style={{
+                      marginTop: 8, background: "linear-gradient(135deg,#00D4AA,#7C3AED)",
+                      color: "#060B18", border: "none", borderRadius: 12, padding: "11px 22px",
+                      fontFamily: "Sora,sans-serif", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                      boxShadow: "0 4px 16px rgba(0,212,170,0.25)"
+                    }}>
+                      Get Covered →
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Live Disruption Alert */}
+            <div style={{
+              background: weather?.parametricTriggered
+                ? "linear-gradient(135deg, #fff1f2, #fff)"
+                : "linear-gradient(135deg, #f0fdf4, #fff)",
+              borderRadius: 20, padding: "24px 24px",
+              boxShadow: "0 8px 32px rgba(15,23,42,0.08)",
+              border: `1.5px solid ${weather?.parametricTriggered ? "#fca5a5" : "#bbf7d0"}`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <span style={{ fontSize: 22 }}>
+                  {weather?.parametricTriggered ? "🔴" : weather ? "🟢" : "🌐"}
+                </span>
+                <h3 style={{ fontFamily: "Sora,sans-serif", fontWeight: 700, fontSize: 16, color: "#0f172a", margin: 0 }}>
+                  Live Disruption Alert
+                </h3>
+              </div>
+              {weatherLoading ? (
+                <div style={{ height: 60, background: "#f1f5f9", borderRadius: 12, animation: "shimmer 1.4s infinite" }} />
+              ) : weather ? (
+                <div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: weather.parametricTriggered ? "#b91c1c" : "#15803d",
+                    marginBottom: 10, lineHeight: 1.5,
+                  }}>
+                    {weather.alertMessage || (weather.parametricTriggered ? "⚠️ Disruption detected" : "✅ All Clear")}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                    <span style={{ fontSize: 12, background: "#f1f5f9", borderRadius: 8, padding: "3px 10px", color: "#475569", fontWeight: 600 }}>
+                      🌡️ {weather.temperature}°C
+                    </span>
+                    <span style={{ fontSize: 12, background: "#f1f5f9", borderRadius: 8, padding: "3px 10px", color: "#475569", fontWeight: 600 }}>
+                      💧 {weather.rainfall} mm
+                    </span>
+                    <span style={{ fontSize: 12, background: "#f1f5f9", borderRadius: 8, padding: "3px 10px", color: "#475569", fontWeight: 600 }}>
+                      💨 {weather.windSpeedKmh} km/h
+                    </span>
+                    <span style={{ fontSize: 12, background: "#f1f5f9", borderRadius: 8, padding: "3px 10px", color: "#475569", fontWeight: 600 }}>
+                      🌫️ AQI {weather.aqi}
+                    </span>
+                  </div>
+                  {weather.isMockData && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: "#94a3b8" }}>* Simulated data — live OWM data pending API activation</div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: "#94a3b8" }}>Set your district in profile to see live alerts</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────────
+             SECTION 2: Earnings Protected (animated counter)
+        ───────────────────────────────────────────────────────────────── */}
+        <div className="dash-section" style={{ marginBottom: 32 }}>
+          <div style={{
+            background: "linear-gradient(135deg, #1e1b4b, #312e81)",
+            borderRadius: 20, padding: "28px 28px",
+            boxShadow: "0 12px 40px rgba(79,70,229,0.25)",
+            display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20,
+          }}>
+            {[
+              {
+                emoji: "💰",
+                label: "Total Protected This Week",
+                value: `₹${displayedEarnings.toLocaleString("en-IN")}`,
+                sub: "Approved payouts",
+              },
+              {
+                emoji: "⚡",
+                label: "Disruptions Covered",
+                value: dashboardClaims.filter(c => c.status === "APPROVED").length,
+                sub: "This week",
+              },
+              {
+                emoji: "🏦",
+                label: "Wallet Balance",
+                value: `₹${(user.walletBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}`,
+                sub: "Available for withdrawal",
+              },
+            ].map((item, i) => (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>{item.emoji}</div>
+                <div style={{ fontSize: "clamp(18px,3vw,26px)", fontWeight: 800, color: "#fff", fontFamily: "Sora,sans-serif" }}>
+                  {item.value}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>{item.label}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>{item.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Quick Actions */}
         <div className="dash-section" style={{ marginBottom: 32 }}>
@@ -607,6 +874,55 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* ─────────────────────────────────────────────────────────────────
+             SECTION 5: Payout History
+        ───────────────────────────────────────────────────────────────── */}
+        {payments.length > 0 && (
+          <div className="dash-section" style={{ marginBottom: 32 }}>
+            <div className="dash-card" style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 32px rgba(15,23,42,0.08)" }}>
+              <div style={{ padding: "20px 24px" }}>
+                <h3 style={{ fontFamily: "Sora,sans-serif", fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>💸 Payout History</h3>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc" }}>
+                        {["Transaction ID", "Amount", "Date", "Method", "UPI Status"].map(h => (
+                          <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 700, color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p, i) => (
+                        <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "10px 12px", fontFamily: "monospace", fontSize: 12, color: "#475569" }}>
+                            {p.gatewayReference || p.transactionId || `TXN-${p.id}`}
+                          </td>
+                          <td style={{ padding: "10px 12px", fontWeight: 700, color: "#0f172a" }}>
+                            ₹{(p.amount || 0).toLocaleString("en-IN")}
+                          </td>
+                          <td style={{ padding: "10px 12px", color: "#64748b" }}>
+                            {p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                          </td>
+                          <td style={{ padding: "10px 12px", color: "#64748b" }}>{p.method || "UPI"}</td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <span style={{
+                              padding: "3px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                              background: p.status === "SUCCESS" ? "#dcfce7" : p.status === "PENDING" ? "#fef9c3" : "#fee2e2",
+                              color: p.status === "SUCCESS" ? "#15803d" : p.status === "PENDING" ? "#a16207" : "#b91c1c",
+                            }}>
+                              {p.status === "SUCCESS" ? "✓ Credited" : p.status || "—"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

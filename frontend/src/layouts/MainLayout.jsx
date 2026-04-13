@@ -4,29 +4,30 @@ import Sidebar from "../components/Sidebar";
 import BottomNav from "../components/BottomNav";
 
 export default function MainLayout() {
-
   return (
+    <div style={{ display: "flex", minHeight: "100vh", background: "#0A1020" }}>
 
-    <div className="min-h-screen bg-gray-100">
-
-      {/* Sidebar (Desktop only) */}
-      <aside className="hidden lg:flex w-64 fixed left-0 top-0 h-screen bg-white shadow">
+      {/* Sidebar — desktop */}
+      <div className="hidden lg:flex" style={{ flexShrink: 0 }}>
         <Sidebar />
-      </aside>
-
-      {/* Content */}
-      <div className="lg:ml-64">
-
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 lg:pb-6">
-          <Outlet />
-        </main>
-
       </div>
 
-      {/* Bottom Nav (Mobile only) */}
+      {/* Main content */}
+      <main style={{
+        flex: 1,
+        minHeight: "100vh",
+        background: "#0A1020",
+        overflowY: "auto",
+        paddingBottom: "80px",
+      }}>
+        {/* Inner page padding */}
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 24px" }}>
+          <Outlet />
+        </div>
+      </main>
+
+      {/* Bottom Nav — mobile */}
       <BottomNav />
-
     </div>
-
   );
 }

@@ -686,4 +686,208 @@ def get_all_triggers():
     return {"triggers": results, "checked_at": datetime.datetime.now().isoformat()}
 
 
-# Helper logic moved to top for better scope visibility.
+# ─────────────────────────────────────────────
+# TASK 3: ENHANCED FRAUD-CHECK + RISK-SCORE
+# ─────────────────────────────────────────────
+
+# District bounding boxes: [min_lat, max_lat, min_lng, max_lng]
+DISTRICT_BBOX: Dict[str, List[float]] = {
+    "Hyderabad":      [17.20, 17.60,  78.30,  78.70],
+    "Mumbai":         [18.85, 19.30,  72.75,  73.05],
+    "Delhi":          [28.40, 28.90,  76.85,  77.40],
+    "Bengaluru":      [12.75, 13.20,  77.40,  77.80],
+    "Chennai":        [12.90, 13.25,  80.10,  80.35],
+    "Pune":           [18.40, 18.65,  73.75,  74.00],
+    "Kolkata":        [22.45, 22.70,  88.25,  88.50],
+    "Ahmedabad":      [22.95, 23.15,  72.50,  72.70],
+    "Jaipur":         [26.78, 27.00,  75.70,  75.90],
+    "Lucknow":        [26.75, 27.00,  80.85,  81.05],
+    "Surat":          [21.10, 21.30,  72.75,  72.95],
+    "Indore":         [22.65, 22.78,  75.80,  75.95],
+    "Visakhapatnam":  [17.60, 17.80,  83.15,  83.35],
+    "Warangal":       [17.90, 18.10,  79.55,  79.75],
+    "Nizamabad":      [18.60, 18.75,  78.05,  78.20],
+    "Nagpur":         [21.05, 21.25,  79.00,  79.20],
+}
+
+DISRUPTION_WEATHER_RULES: Dict[str, Dict[str, Any]] = {
+    "HEAVY_RAIN":    {"field": "weather_actual_rainfall", "operator": ">=", "threshold": 50},
+    "EXTREME_RAIN":  {"field": "weather_actual_rainfall", "operator": ">=", "threshold": 100},
+    "CYCLONE":       {"field": "weather_actual_rainfall", "operator": ">=", "threshold": 200},
+    "EXTREME_HEAT":  {"field": "weather_actual_temp",     "operator": ">=", "threshold": 42},
+    "SEVERE_HEAT":   {"field": "weather_actual_temp",     "operator": ">=", "threshold": 45},
+    "HIGH_WINDS":    {"field": "weather_actual_wind",     "operator": ">=", "threshold": 60},
+    "CYCLONE_WINDS": {"field": "weather_actual_wind",     "operator": ">=", "threshold": 80},
+    "HAZARDOUS_AQI": {"field": "weather_actual_aqi",      "operator": ">=", "threshold": 300},
+}
+
+
+class GigFraudRequest(BaseModel):
+    claim_id:                   str
+    worker_id:                  str
+    district:                   str
+    claimed_disruption:         str          # e.g. "HEAVY_RAIN"
+    claim_date:                 str
+    worker_lat:                 Optional[float] = None
+    worker_lng:                 Optional[float] = None
+    registered_district:        str
+    previous_claims_this_month: int = 0
+    # Actual weather readings at the time of claim
+    weather_actual_rainfall:    float = 0.0
+    weather_actual_temp:        float = 28.0
+    weather_actual_wind:        float = 10.0
+    weather_actual_aqi:         int   = 80
+
+
+class RiskScoreRequest(BaseModel):
+    district:           str
+    platform:           str
+    avg_weekly_earning: float = 4000.0
+    months_active:      Optional[int] = 3
+    prior_claims:       Optional[int] = 0
+
+
+def _check_gps_spoofing(lat: Optional[float], lng: Optional[float], district: str) -> int:
+    """Returns fraud points (0 or 40) based on GPS vs bounding box."""
+    if lat is None or lng is None:
+        return 0   # no GPS data — skip check
+    bbox = DISTRICT_BBOX.get(district)
+    if bbox is None:
+        return 0   # unknown district — skip
+    min_lat, max_lat, min_lng, max_lng = bbox
+    if not (min_lat <= lat <= max_lat and min_lng <= lng <= max_lng):
+        return 40
+    return 0
+
+
+def _check_weather_match(req: GigFraudRequest) -> int:
+    """Returns fraud points for weather mismatches."""
+    points = 0
+    disruption = req.claimed_disruption.upper().replace(" ", "_")
+
+    # Custom rule lookup
+    rule = DISRUPTION_WEATHER_RULES.get(disruption)
+    if rule:
+        field = rule["field"]
+        actual = getattr(req, field, None)
+        if actual is not None:
+            threshold = rule["threshold"]
+            if rule["operator"] == ">=" and actual < threshold:
+                points += 35
+        return points
+
+    # Legacy checks
+    if "HEAVY_RAIN" in disruption or "RAIN" in disruption:
+        if req.weather_actual_rainfall < 50:
+            points += 35
+    if "EXTREME_HEAT" in disruption or "HEAT" in disruption:
+        if req.weather_actual_temp < 42:
+            points += 35
+    if "WIND" in disruption or "CYCLONE" in disruption:
+        if req.weather_actual_wind < 60:
+            points += 35
+    if "AQI" in disruption or "POLLUTION" in disruption:
+        if req.weather_actual_aqi < 200:
+            points += 35
+    return points
+
+
+@app.post("/fraud-check")
+def gig_fraud_check(req: GigFraudRequest):
+    """
+    GigShield fraud detection:
+      1. GPS spoofing check        → +40 points
+      2. Weather mismatch check    → +35 points
+      3. Duplicate flood check     → +25 points
+    Decision bands:
+       0–30  → AUTO_APPROVED
+      31–60  → APPROVED_WITH_AUDIT
+      61–85  → FLAGGED_FOR_REVIEW
+      86–100 → AUTO_REJECTED
+    """
+    total = 0
+    flags = []
+
+    # 1. GPS spoofing
+    gps_pts = _check_gps_spoofing(req.worker_lat, req.worker_lng, req.registered_district)
+    if gps_pts > 0:
+        flags.append(f"GPS_SPOOFING: worker location outside {req.registered_district} bounding box")
+        total += gps_pts
+    else:
+        flags.append("GPS_OK" if req.worker_lat is not None else "GPS_NOT_PROVIDED")
+
+    # 2. Weather mismatch
+    wx_pts = _check_weather_match(req)
+    if wx_pts > 0:
+        flags.append(f"WEATHER_MISMATCH: claimed {req.claimed_disruption} but weather readings don't support it")
+        total += wx_pts
+    else:
+        flags.append("WEATHER_MATCH")
+
+    # 3. Duplicate / claim flood
+    if req.previous_claims_this_month > 5:
+        flags.append(f"CLAIM_FLOOD: {req.previous_claims_this_month} claims this month")
+        total += 25
+    else:
+        flags.append("CLAIM_FREQUENCY_OK")
+
+    total = min(total, 100)
+
+    if total <= 30:
+        decision = "AUTO_APPROVED"
+        reason   = "All checks passed — claim auto-approved."
+    elif total <= 60:
+        decision = "APPROVED_WITH_AUDIT"
+        reason   = "Minor anomalies detected — approved with audit trail."
+    elif total <= 85:
+        decision = "FLAGGED_FOR_REVIEW"
+        reason   = "Significant fraud signals — flagged for manual review."
+    else:
+        decision = "AUTO_REJECTED"
+        reason   = "Critical fraud signals — claim auto-rejected."
+
+    return {
+        "fraud_score": total,
+        "decision":    decision,
+        "flags":       flags,
+        "reason":      reason,
+        "claim_id":    req.claim_id,
+        "worker_id":   req.worker_id,
+        "analyzed_at": datetime.datetime.now().isoformat(),
+    }
+
+
+@app.post("/risk-score")
+def compute_risk_score_endpoint(req: RiskScoreRequest):
+    """
+    Risk assessment: returns risk_multiplier and weekly_premium.
+    risk_multiplier: 0.8 (low) → 2.0 (very high)
+    """
+    # Use a city-level state mapping for known districts
+    known_states = {
+        "Hyderabad": "Telangana", "Mumbai": "Maharashtra", "Delhi": "Delhi",
+        "Bengaluru": "Karnataka", "Chennai": "Tamil Nadu", "Pune": "Maharashtra",
+        "Kolkata": "West Bengal", "Ahmedabad": "Gujarat", "Jaipur": "Rajasthan",
+        "Lucknow": "Uttar Pradesh", "Visakhapatnam": "Andhra Pradesh",
+        "Warangal": "Telangana", "Nizamabad": "Telangana",
+    }
+    state = known_states.get(req.district, "Maharashtra")
+
+    raw_score = compute_risk_score(req.platform, state, req.months_active or 3, req.prior_claims or 0)
+    multiplier = round(0.80 + raw_score * 1.20, 2)   # range 0.80 – 2.0
+    multiplier = max(0.80, min(2.00, multiplier))
+
+    base_premium = 40.0  # Smart plan base
+    weekly_premium = round(base_premium * multiplier, 2)
+
+    return {
+        "district":        req.district,
+        "platform":        req.platform,
+        "risk_score":      raw_score,
+        "risk_category":   "High" if raw_score >= 0.70 else "Moderate" if raw_score >= 0.45 else "Low",
+        "risk_multiplier": multiplier,
+        "weekly_premium":  weekly_premium,
+        "avg_weekly_earning": req.avg_weekly_earning,
+        "income_at_risk_pct": round(raw_score * 100, 1),
+        "analyzed_at":     datetime.datetime.now().isoformat(),
+    }

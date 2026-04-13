@@ -36,7 +36,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/register-init", "/api/auth/register", "/api/auth/login", "/api/auth/verify-otp", "/api/auth/social",
                     "/api/auth/forgot-password", "/api/auth/reset-password",
                     "/api/plans", "/api/plans/**", "/api/partners", "/api/partners/**",
-                    "/api/ai/fraud/stats", "/api/ai/parametric/triggers").permitAll()
+                    "/api/ai/fraud/stats", "/api/ai/parametric/triggers",
+                    "/api/weather/check").permitAll()      // public district weather query
                 // changing admin credentials also needs ADMIN
                 .requestMatchers("/api/auth/admin/change").hasRole("ADMIN")
                 // admin API requires ROLE_ADMIN authority
