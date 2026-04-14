@@ -1,0 +1,29 @@
+# Git files
+.git
+.gitignore
+
+# Node modules will be installed by Vercel
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Local environment files
+.env.local
+.env.*.local
+
+# Build artifacts
+dist
+build
+
+# IDE and OS files
+.DS_Store
+.env
+*.swp
+*.swo
+*~
+.vscode
+.idea
+
+# Documentation
+docs
+README.md

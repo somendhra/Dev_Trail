@@ -1,10 +1,8 @@
-const runtimeBase = typeof window !== 'undefined'
-  ? `${window.location.protocol}//${window.location.hostname}:4000`
-  : 'http://localhost:4000';
-
-const envBase = import.meta.env.VITE_API_URL;
-
-const BASE = 'http://127.0.0.1:4000';
+// Determine API base URL based on environment
+const BASE = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:4000`
+    : 'http://localhost:4000');
 
 async function request(path, opts = {}) {
   const url = `${BASE}${path}`;

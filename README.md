@@ -152,6 +152,44 @@ docker-compose up -d --build
 
 ---
 
+## 🌐 FRONTEND DEPLOYMENT — VERCEL (ONLINE HOSTING)
+
+Deploy your React frontend to Vercel for free, with automatic scaling and CDN delivery worldwide!
+
+### Quick Start (5 minutes)
+
+```bash
+# 1. Install Vercel CLI
+npm install -g vercel
+
+# 2. Navigate to frontend and login
+cd frontend
+vercel login
+
+# 3. Deploy with environment variables
+vercel --prod --env VITE_API_URL="https://your-backend-url.com"
+```
+
+### Key Features
+
+| Feature | Benefit |
+|---------|---------|
+| **Global CDN** | Lightning-fast delivery worldwide |
+| **Auto-scaling** | Handles traffic spikes automatically |
+| **Free Tier** | Perfect for development & demos |
+| **Git Integration** | Auto-deploy on every GitHub push |
+| **Preview URLs** | Test PRs before merging |
+
+### Full Guide
+
+👉 See **[VERCEL_DEPLOYMENT_GUIDE.md](VERCEL_DEPLOYMENT_GUIDE.md)** for complete setup instructions
+
+**Or use automated script:**
+- Windows: `./vercel-deploy.bat`
+- Linux/Mac: `./vercel-deploy.sh`
+
+---
+
 ## 🛠️ Tools & Technologies Used
 
 ### Frontend Stack
