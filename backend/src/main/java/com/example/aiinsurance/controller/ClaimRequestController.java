@@ -14,6 +14,7 @@ import com.example.aiinsurance.repository.SubscriptionRepository;
 import com.example.aiinsurance.security.JwtUtil;
 import com.example.aiinsurance.service.AIService;
 import com.example.aiinsurance.service.ClaimService;
+import com.example.aiinsurance.service.EmailService;
 import com.example.aiinsurance.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

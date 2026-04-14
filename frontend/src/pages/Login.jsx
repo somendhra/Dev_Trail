@@ -37,7 +37,7 @@ const STYLES = `
   /* Layout */
   .lroot { display:flex; min-height:100vh; background:#060B18; }
   .l-hero { flex:0 0 45%; min-height:100vh; position:relative; overflow:hidden; background:#060B18; display:flex; flex-direction:column; padding:40px 48px; }
-  .login-dark-form { flex:1; background:#0F172A; display:flex; align-items:center; justify-content:center; min-height:100vh; overflow-y:auto; padding:32px 24px; }
+  .login-dark-form { flex:1; background:#0A1020; display:flex; align-items:center; justify-content:center; min-height:100vh; overflow-y:auto; padding:32px 24px; }
 
   @media(max-width:900px){
     .lroot { flex-direction:column; }
@@ -63,10 +63,11 @@ const STYLES = `
     background-size:56px 56px;
   }
 
-  /* Card */
+  /* Card — full dark, matching app theme */
   .login-dark-card {
-    background:#0B1121; border-radius:22px; width:100%; max-width:430px;
-    box-shadow:0 24px 72px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+    background:#0D1526 !important;
+    border-radius:22px; width:100%; max-width:430px;
+    box-shadow:0 24px 72px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07);
     overflow:hidden;
     animation: cardin 0.5s cubic-bezier(.22,.68,0,1.2) both;
   }
@@ -75,17 +76,38 @@ const STYLES = `
     to   { opacity:1; transform:translateY(0) scale(1); }
   }
 
-  /* Input */
-  .l-input {
-    width:100%; border:1.5px solid #334155; border-radius:12px;
-    padding:13px 14px 13px 42px; font-size:15px; font-weight:600; background:#0F172A;
-    color:#FFFFFF !important; outline:none; box-sizing:border-box;
-    transition:border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  /* ── Inputs — dark scoped with high specificity, always show text ── */
+  .lroot .l-input,
+  .login-dark-form .l-input {
+    width:100%; border:1.5px solid rgba(255,255,255,0.13); border-radius:12px;
+    padding:13px 14px 13px 42px; font-size:15px; font-weight:500;
+    background:#131F35 !important;
+    color:#E2E8F0 !important;
+    caret-color:#00D4AA;
+    color-scheme: dark;
+    outline:none; box-sizing: border-box;
+    transition:border-color 0.2s, box-shadow 0.2s;
     font-family:'Inter',sans-serif;
   }
-  .l-input:focus { border-color:#00D4AA; box-shadow:0 0 0 3px rgba(0,212,170,0.2); background:#1E293B; color:#FFFFFF !important; }
-  .l-input::placeholder { color:#64748B; font-weight:500; font-size:14px; }
-  .l-input-r { padding-right:42px; } /* for eye icon */
+  .lroot .l-input:focus,
+  .login-dark-form .l-input:focus {
+    border-color:#00D4AA;
+    box-shadow:0 0 0 3px rgba(0,212,170,0.18);
+    background:#182234 !important;
+    color:#F1F5F9 !important;
+  }
+  .lroot .l-input::placeholder,
+  .login-dark-form .l-input::placeholder { color:#6B7A9A; font-weight:400; font-size:14px; }
+  /* Kill browser autofill yellow/white override */
+  .lroot .l-input:-webkit-autofill,
+  .lroot .l-input:-webkit-autofill:focus,
+  .lroot .l-input:-webkit-autofill:hover,
+  .login-dark-form .l-input:-webkit-autofill {
+    -webkit-box-shadow:0 0 0 1000px #131F35 inset !important;
+    -webkit-text-fill-color:#E2E8F0 !important;
+    caret-color:#00D4AA !important;
+  }
+  .l-input-r { padding-right:42px; }
 
   /* Main button */
   .l-btn {
@@ -110,14 +132,14 @@ const STYLES = `
   @keyframes lbtnshine { to { left:130%; } }
 
   /* Role tabs */
-  .l-roletabs { display:flex; background:#0F172A; border-radius:12px; padding:4px; margin-bottom:16px; border:1px solid #1E293B; }
+  .l-roletabs { display:flex; background:rgba(255,255,255,0.05); border-radius:12px; padding:4px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); }
   .l-roletab {
     flex:1; padding:9px 0; border-radius:9px; border:none; cursor:pointer;
     font-size:13px; font-weight:600; transition:all 0.2s; font-family:'Inter',sans-serif;
   }
-  .l-roletab.on { background:#1E293B; color:#F8FAFC; box-shadow:0 1px 6px rgba(0,0,0,0.3); border:1px solid #334155; }
-  .l-roletab.off { background:transparent; color:#64748B; }
-  .l-roletab.off:hover { color:#94A3B8; }
+  .l-roletab.on { background:rgba(255,255,255,0.12); color:#F1F5F9; box-shadow:0 1px 6px rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.14); }
+  .l-roletab.off { background:transparent; color:#8897AE; }
+  .l-roletab.off:hover { color:#CBD5E1; }
 
   /* Method tabs */
   .l-methodtabs { display:flex; gap:8px; margin-bottom:20px; }
@@ -126,22 +148,22 @@ const STYLES = `
     font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s;
     font-family:'Inter',sans-serif;
   }
-  .l-methodtab.on { background:#F8FAFC; color:#0F172A; border-color:#F8FAFC; }
-  .l-methodtab.off { background:transparent; color:#64748B; border-color:#334155; }
+  .l-methodtab.on { background:rgba(0,212,170,0.18); color:#00D4AA; border-color:#00D4AA; }
+  .l-methodtab.off { background:transparent; color:#8897AE; border-color:rgba(255,255,255,0.15); }
 
   /* Google btn */
   .l-googlebtn {
-    width:100%; height:44px; background:#0F172A; border:1.5px solid #334155; border-radius:12px;
+    width:100%; height:44px; background:rgba(255,255,255,0.05); border:1.5px solid rgba(255,255,255,0.10); border-radius:12px;
     display:flex; align-items:center; justify-content:center; gap:10px;
-    font-size:14px; font-weight:600; color:#F8FAFC; cursor:pointer;
+    font-size:14px; font-weight:600; color:#CBD5E1; cursor:pointer;
     transition:background 0.2s, border-color 0.2s, transform 0.18s;
     font-family:'Inter',sans-serif;
   }
-  .l-googlebtn:hover:not(:disabled) { background:#1E293B; border-color:#475569; transform:translateY(-1px); }
-  .l-googlebtn:disabled { opacity:0.55; cursor:not-allowed; }
+  .l-googlebtn:hover:not(:disabled) { background:rgba(255,255,255,0.09); border-color:rgba(255,255,255,0.2); transform:translateY(-1px); }
+  .l-googlebtn:disabled { opacity:0.4; cursor:not-allowed; }
 
   /* Trust pills */
-  .l-trust { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#94A3B8; background:#0F172A; border-radius:20px; padding:4px 10px; border:1px solid #1E293B; }
+  .l-trust { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#8897AE; background:rgba(255,255,255,0.05); border-radius:20px; padding:4px 10px; border:1px solid rgba(255,255,255,0.10); }
   .l-dot { width:6px;height:6px;border-radius:50%;background:#00D4AA;display:inline-block;flex-shrink:0; }
 
   /* Feature row */
@@ -173,7 +195,7 @@ function FI({ children }) {
   return (
     <span style={{
       position:"absolute", left:13, top:"50%", transform:"translateY(-50%)",
-      color:"#64748B", display:"flex", alignItems:"center", pointerEvents:"none", zIndex:1,
+      color:"#8897AE", display:"flex", alignItems:"center", pointerEvents:"none", zIndex:1,
     }}>
       {children}
     </span>
@@ -452,8 +474,8 @@ export default function Login() {
             <input type="text" name="preventAutofill" autoComplete="off" style={{ display:"none" }} tabIndex={-1} readOnly />
             <input type="password" name="preventAutofill2" autoComplete="off" style={{ display:"none" }} tabIndex={-1} readOnly />
 
-            <h2 style={{ fontSize:24, fontWeight:800, color:"#F8FAFC", margin:"0 0 4px" }}>{isAdmin ? "Admin Login" : "Login"}</h2>
-            <p style={{ fontSize:13, color:"#64748B", margin:"0 0 22px" }}>
+            <h2 style={{ fontSize:24, fontWeight:800, color:"#F1F5F9", margin:"0 0 4px" }}>{isAdmin ? "Admin Login" : "Login"}</h2>
+            <p style={{ fontSize:13, color:"#94A3B8", margin:"0 0 22px" }}>
               {isAdmin ? "Secure access for administrators." : "Sign in to manage your insurance & claims."}
             </p>
 
@@ -514,7 +536,7 @@ export default function Login() {
                   name="gs-password"
                 />
                 <button type="button" onClick={()=>setShowPw(v=>!v)}
-                  style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#64748B", padding:0, display:"flex" }}>
+                  style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#8897AE", padding:0, display:"flex" }}>
                   <EyeIcon open={showPw}/>
                 </button>
               </div>
@@ -531,9 +553,9 @@ export default function Login() {
               {!isAdmin && (
                 <>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ flex:1, height:1, background:"#334155" }} />
-                    <span style={{ fontSize:11, color:"#64748B", fontWeight:600, whiteSpace:"nowrap" }}>or continue with</span>
-                    <div style={{ flex:1, height:1, background:"#334155" }} />
+                    <div style={{ flex:1, height:1, background:"rgba(255,255,255,0.08)" }} />
+                    <span style={{ fontSize:11, color:"#4B5A72", fontWeight:600, whiteSpace:"nowrap" }}>or continue with</span>
+                    <div style={{ flex:1, height:1, background:"rgba(255,255,255,0.08)" }} />
                   </div>
                   {!isFirebaseConfigured && (
                     <div style={{ fontSize:12, color:"#92400E", background:"#FFFBEB", border:"1px solid #FCD34D", borderRadius:10, padding:"8px 12px" }}>
@@ -550,9 +572,9 @@ export default function Login() {
               {/* Links */}
               {!isAdmin ? (
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <Link to="/forgot" style={{ fontSize:13, color:"#94A3B8", textDecoration:"none" }}
-                    onMouseEnter={e=>e.currentTarget.style.color="#64748B"}
-                    onMouseLeave={e=>e.currentTarget.style.color="#94A3B8"}>
+                  <Link to="/forgot" style={{ fontSize:13, color:"#8897AE", textDecoration:"none" }}
+                    onMouseEnter={e=>e.currentTarget.style.color="#CBD5E1"}
+                    onMouseLeave={e=>e.currentTarget.style.color="#8897AE"}>
                     Forgot password?
                   </Link>
                   <Link to="/register" style={{ fontSize:13, color:"#00D4AA", fontWeight:700, textDecoration:"none" }}>
@@ -560,7 +582,7 @@ export default function Login() {
                   </Link>
                 </div>
               ) : (
-                <p style={{ fontSize:12, color:"#94A3B8", textAlign:"center", margin:0 }}>
+                <p style={{ fontSize:12, color:"#8897AE", textAlign:"center", margin:0 }}>
                   Admin accounts are provisioned by the system. For workers, switch to User Login.
                 </p>
               )}

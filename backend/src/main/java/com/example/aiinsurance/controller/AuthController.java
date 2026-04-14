@@ -387,30 +387,47 @@ public class AuthController {
                 }
                 user.setPhone(newPhone);
             }
+            boolean needsReverification = false;
+
             if (updates.containsKey("platform")) {
-                user.setPlatform(updates.get("platform"));
+                String newVal = updates.get("platform");
+                if (newVal != null && !newVal.equals(user.getPlatform())) {
+                    user.setPlatform(newVal);
+                    needsReverification = true;
+                }
             }
             if (updates.containsKey("password")) {
-                // encode new password
                 user.setPassword(passwordEncoder.encode(updates.get("password")));
             }
             if (updates.containsKey("state")) {
                 String val = updates.get("state");
-                if (val != null && !val.trim().isEmpty() && (user.getState() == null || user.getState().trim().isEmpty())) {
+                if (val != null && !val.trim().isEmpty() && !val.equals(user.getState())) {
                     user.setState(val);
+                    needsReverification = true;
                 }
             }
             if (updates.containsKey("district")) {
                 String val = updates.get("district");
-                if (val != null && !val.trim().isEmpty() && (user.getDistrict() == null || user.getDistrict().trim().isEmpty())) {
+                if (val != null && !val.trim().isEmpty() && !val.equals(user.getDistrict())) {
                     user.setDistrict(val);
+                    needsReverification = true;
                 }
             }
             if (updates.containsKey("mandal")) {
                 String val = updates.get("mandal");
-                if (val != null && !val.trim().isEmpty() && (user.getMandal() == null || user.getMandal().trim().isEmpty())) {
+                if (val != null && !val.trim().isEmpty() && !val.equals(user.getMandal())) {
                     user.setMandal(val);
+                    needsReverification = true;
                 }
+            }
+            
+            // Allow explicit re-verification request from frontend
+            if (updates.containsKey("requestReverification") && Boolean.parseBoolean(updates.get("requestReverification"))) {
+                needsReverification = true;
+            }
+
+            if (needsReverification) {
+                user.setVerificationStatus("PENDING");
             }
 
             User updated = userService.updateUser(user);
@@ -426,6 +443,7 @@ public class AuthController {
             res.put("district", updated.getDistrict());
             res.put("mandal", updated.getMandal());
             res.put("walletBalance", updated.getWalletBalance());
+            res.put("verificationStatus", updated.getVerificationStatus());
             res.put("createdAt", updated.getCreatedAt() != null ? updated.getCreatedAt().toString() : null);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -518,6 +536,52 @@ public class AuthController {
             return ResponseEntity.ok(Map.of(
                     "message", "Password reset successfully. Please login with your new password.",
                     "email", email));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ── Change Password (authenticated) ──────────────────────────────────────
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestHeader("Authorization") String authHeader,
+                                            @RequestBody Map<String, String> request) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+            }
+            String token = authHeader.substring(7);
+            if (!jwtUtil.validateToken(token)) {
+                return ResponseEntity.status(401).body(Map.of("error", "Invalid token"));
+            }
+
+            String currentPassword = request.get("currentPassword");
+            String newPassword     = request.get("newPassword");
+
+            if (currentPassword == null || currentPassword.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Current password is required"));
+            }
+            if (newPassword == null || newPassword.length() < 6) {
+                return ResponseEntity.badRequest().body(Map.of("error", "New password must be at least 6 characters"));
+            }
+
+            String email = jwtUtil.extractUsername(token);
+            Optional<User> userOpt = userService.findByEmail(email);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+            }
+
+            User user = userOpt.get();
+            if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Current password is incorrect"));
+            }
+            if (currentPassword.equals(newPassword)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "New password must be different from the current password"));
+            }
+
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userService.updateUser(user);
+
+            return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

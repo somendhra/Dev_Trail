@@ -1,0 +1,14 @@
+target/
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+node_modules/
+.env.local
+.env.*.local

@@ -32,6 +32,29 @@ async function request(path, opts = {}) {
   }
 }
 
+async function requestAi(path, opts = {}) {
+  const url = `http://localhost:8000${path}`;
+  const headers = opts.headers ? { ...opts.headers } : {};
+  if (!(headers['Content-Type'] || headers['content-type'])) {
+    headers['Content-Type'] = 'application/json';
+  }
+  try {
+    const response = await fetch(url, { ...opts, headers });
+    const text = await response.text();
+    let payload;
+    try { payload = JSON.parse(text); }
+    catch (e) { payload = text; }
+
+    if (!response.ok) {
+      if (payload && typeof payload === 'object' && payload.error) return payload;
+      return { error: `AI Request failed (${response.status})` };
+    }
+    return payload;
+  } catch (e) {
+    return { error: `Unable to reach AI engine at port 8000.` };
+  }
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export async function sendRegisterOtp({ email, phone }) {
   return request('/api/auth/register-init', {
@@ -111,6 +134,13 @@ export async function updateUser(updates) {
   return request('/api/auth/me', { method: 'PUT', body: JSON.stringify(updates) });
 }
 
+export async function changePassword({ currentPassword, newPassword }) {
+  return request('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 // ── Plans ─────────────────────────────────────────────────────────────────────
 export async function getPlans() {
   return request('/api/plans', { method: 'GET' });
@@ -183,6 +213,9 @@ export async function adminDeleteUser(id) {
 }
 export async function adminUpdateUser(id, updates) {
   return request(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(updates) });
+}
+export async function adminVerifyWorker(id, status, note = '') {
+  return request(`/api/admin/users/${id}/verify`, { method: 'PUT', body: JSON.stringify({ status, note }) });
 }
 
 export async function adminListPlans() {
@@ -329,6 +362,13 @@ export async function adminGetWeatherReport() {
   return request('/api/ai/admin/weather-report', { method: 'GET' });
 }
 
+export async function aiWorkerCheck(userId, platform, name) {
+  return requestAi('/ai/verify-employment', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, platform, name })
+  });
+}
+
 export default {
   registerUser, loginUser, socialLogin, verifyOtp, getCurrentUser, updateUser,
   forgotPassword, resetPassword,
@@ -337,7 +377,7 @@ export default {
   getDashboardSummary,
   postQuery, getMyQueries,
   adminChangeCredentials,
-  adminListUsers, adminDeleteUser, adminUpdateUser,
+  adminListUsers, adminDeleteUser, adminUpdateUser, adminVerifyWorker,
   adminListPlans, adminUpdatePlan, adminCreatePlan,
   adminListPayments, adminApprovePayment, adminRejectPayment, adminDeletePayment,
   adminListQueries, adminReplyQuery, adminClearUserChat, userClearChat, userMarkQueriesAsRead,
@@ -351,6 +391,7 @@ export default {
   getAIPremium, getAIRisk, detectFraud, checkParametric,
   getAIWeather, getAIDashboard, getAIPlanRecommendation,
   getFraudStats, getAllTriggers,
+  aiWorkerCheck,
   // WeatherService (Java backend)
   getWeatherForDistrict, getWorkerWeather,
 };

@@ -23,31 +23,32 @@ export default function DateSeparator({ date }) {
   };
 
   return (
-    <div style={{ 
-      display: "flex", 
-      justifyContent: "center", 
-      alignItems: "center", 
-      margin: "24px 0",
-      position: "relative"
+    <div style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      margin: "20px 0",
+      position: "relative",
     }}>
-      <div style={{ 
-        position: "absolute", 
-        width: "100%", 
-        height: "1px", 
-        background: "#e2e8f0", 
-        zIndex: 0 
+      <div style={{
+        position: "absolute",
+        width: "100%",
+        height: "1px",
+        background: "rgba(255,255,255,0.07)",
+        zIndex: 0,
       }} />
-      <div style={{ 
-        background: "#f1f5f9", 
-        padding: "4px 16px", 
-        borderRadius: "20px", 
-        fontSize: "11px", 
-        fontWeight: "700", 
-        color: "#64748b", 
-        textTransform: "uppercase", 
-        letterSpacing: "0.5px",
+      <div style={{
+        background: "rgba(0,212,170,0.08)",
+        padding: "4px 16px",
+        borderRadius: 20,
+        fontSize: 10,
+        fontWeight: 700,
+        color: "#00D4AA",
+        textTransform: "uppercase",
+        letterSpacing: "0.8px",
         zIndex: 1,
-        border: "1px solid #e2e8f0"
+        border: "1px solid rgba(0,212,170,0.2)",
+        fontFamily: "'Inter', sans-serif",
       }}>
         {getLabel(date)}
       </div>

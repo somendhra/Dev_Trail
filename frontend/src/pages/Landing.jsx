@@ -193,6 +193,22 @@ const STYLES = `
     transition:background 0.2s, transform 0.2s;
   }
   .outline-btn:hover { background:rgba(255,255,255,0.10); transform:translateY(-2px); }
+
+  /* Landing embedded login input autofill & focus fix */
+  .landing-input {
+    width:100%; border:1.5px solid rgba(255,255,255,0.13); border-radius:11px;
+    padding:12px 12px 12px 40px; font-size:13px; font-weight:500;
+    font-family:'Inter',sans-serif; transition:border-color 0.2s, box-shadow 0.2s;
+    background:#131F35 !important; color:#E2E8F0 !important; color-scheme:dark; box-sizing:border-box; outline:none;
+  }
+  .landing-input:focus { border-color:#00D4AA !important; box-shadow:0 0 0 3px rgba(0,212,170,0.18); background:#182234 !important; color:#F1F5F9 !important; }
+  .landing-input::placeholder { color:#6B7A9A; font-weight:400; font-size:13px; }
+  .landing-input:-webkit-autofill,
+  .landing-input:-webkit-autofill:focus,
+  .landing-input:-webkit-autofill:hover {
+    -webkit-box-shadow:0 0 0 1000px #131F35 inset !important;
+    -webkit-text-fill-color:#E2E8F0 !important; caret-color:#00D4AA !important;
+  }
 `;
 
 /* ─────────────────────────── HELPERS ─────────────────────────────── */
@@ -353,12 +369,12 @@ export default function Landing() {
           </div>
 
           {/* ── RIGHT: Inline Login Card ── */}
-          <div className="fade-up d3" style={{ background:"#fff", borderRadius:22, overflow:"hidden",
-            boxShadow:"0 24px 72px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)" }}>
+          <div className="fade-up d3" style={{ background:"#0D1526", borderRadius:22, overflow:"hidden",
+            boxShadow:"0 24px 72px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07)" }}>
             {/* Gradient bar */}
             <div style={{ height:4, background:"linear-gradient(90deg,#00D4AA,#7C3AED,#60A5FA)" }} />
             <div style={{ padding:"28px 28px 24px" }}>
-              <h2 style={{ fontSize:20, fontWeight:800, color:"#0F172A", margin:"0 0 4px", fontFamily:"'Sora',sans-serif" }}>
+              <h2 style={{ fontSize:20, fontWeight:800, color:"#F1F5F9", margin:"0 0 4px", fontFamily:"'Sora',sans-serif" }}>
                 {authRole==="admin" ? "Admin Login" : "Welcome back"}
               </h2>
               <p style={{ fontSize:12, color:"#94A3B8", margin:"0 0 18px" }}>
@@ -366,15 +382,17 @@ export default function Landing() {
               </p>
 
               {/* Role tabs */}
-              <div style={{ display:"flex", background:"#F1F5F9", borderRadius:11, padding:3, marginBottom:14 }}>
+              <div style={{ display:"flex", background:"rgba(255,255,255,0.05)", borderRadius:11, padding:3, marginBottom:14, border:"1px solid rgba(255,255,255,0.08)" }}>
                 {[{r:"user",l:"👤 User"},{r:"admin",l:"🔐 Admin"}].map(({r,l}) => (
                   <button key={r} onClick={() => handleRole(r)}
-                    style={{ flex:1, padding:"8px 0", border:"none", borderRadius:9, cursor:"pointer",
+                    style={{ flex:1, padding:"8px 0", border: authRole===r ? "1px solid rgba(255,255,255,0.14)" : "1px solid transparent", borderRadius:9, cursor:"pointer",
                       fontSize:12, fontWeight:700, fontFamily:"'Inter',sans-serif",
-                      background: authRole===r ? "#fff" : "transparent",
-                      color: authRole===r ? "#0F172A" : "#94A3B8",
-                      boxShadow: authRole===r ? "0 1px 5px rgba(0,0,0,0.08)" : "none",
-                      transition:"all 0.2s" }}>
+                      background: authRole===r ? "rgba(255,255,255,0.12)" : "transparent",
+                      color: authRole===r ? "#F1F5F9" : "#8897AE",
+                      boxShadow: authRole===r ? "0 1px 5px rgba(0,0,0,0.3)" : "none",
+                      transition:"all 0.2s" }}
+                    onMouseEnter={e => { if(authRole!==r) e.currentTarget.style.color="#CBD5E1"; }}
+                    onMouseLeave={e => { if(authRole!==r) e.currentTarget.style.color="#8897AE"; }}>
                     {l}
                   </button>
                 ))}
@@ -385,9 +403,9 @@ export default function Landing() {
                 <div style={{ display:"flex", gap:7, marginBottom:14 }}>
                   {[{m:"credentials",l:"✉️ Email"},{m:"mobile",l:"📱 Mobile"}].map(({m,l}) => (
                     <button key={m} onClick={() => setLoginMode(m)}
-                      style={{ padding:"6px 14px", borderRadius:999, border:`1.5px solid ${loginMode===m?"#0F172A":"#E2E8F0"}`,
-                        background: loginMode===m ? "#0F172A" : "transparent",
-                        color: loginMode===m ? "#fff" : "#94A3B8",
+                      style={{ padding:"6px 14px", borderRadius:999, border:`1.5px solid ${loginMode===m?"#00D4AA":"rgba(255,255,255,0.15)"}`,
+                        background: loginMode===m ? "rgba(0,212,170,0.18)" : "transparent",
+                        color: loginMode===m ? "#00D4AA" : "#8897AE",
                         fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Inter',sans-serif",
                         transition:"all 0.2s" }}>
                       {l}
@@ -403,41 +421,33 @@ export default function Landing() {
 
                 {/* Email / Phone */}
                 <div style={{ position:"relative" }}>
-                  <span style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:"#CBD5E1", display:"flex", pointerEvents:"none" }}>
+                  <span style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:"#8897AE", display:"flex", pointerEvents:"none", zIndex:1 }}>
                     {authRole==="admin"||loginMode==="credentials" ? <IconMail/> : <IconPhone/>}
                   </span>
                   <input
-                    style={{ width:"100%", border:"1.5px solid #E2E8F0", borderRadius:11, padding:"12px 12px 12px 40px",
-                      fontSize:13, background:"#F8FAFC", color:"#0F172A", outline:"none", boxSizing:"border-box",
-                      fontFamily:"'Inter',sans-serif", transition:"border 0.2s" }}
+                    className="landing-input"
                     type={authRole==="admin"||loginMode==="credentials" ? "email" : "tel"}
                     placeholder={authRole==="admin"||loginMode==="credentials" ? "Email address" : "Mobile number"}
                     value={authRole==="admin"||loginMode==="credentials" ? loginForm.email : loginForm.phone}
                     onChange={authRole==="admin"||loginMode==="credentials" ? setF("email") : setF("phone")}
                     onKeyDown={onKey} autoComplete="off" name="gs-id"
-                    onFocus={e => e.target.style.borderColor="#00D4AA"}
-                    onBlur={e => e.target.style.borderColor="#E2E8F0"}
                   />
                 </div>
 
                 {/* Password */}
                 <div style={{ position:"relative" }}>
-                  <span style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:"#CBD5E1", display:"flex", pointerEvents:"none" }}>
+                  <span style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:"#8897AE", display:"flex", pointerEvents:"none", zIndex:1 }}>
                     <IconLock/>
                   </span>
                   <input
-                    style={{ width:"100%", border:"1.5px solid #E2E8F0", borderRadius:11, padding:"12px 40px 12px 40px",
-                      fontSize:13, background:"#F8FAFC", color:"#0F172A", outline:"none", boxSizing:"border-box",
-                      fontFamily:"'Inter',sans-serif", transition:"border 0.2s" }}
+                    className="landing-input"
                     type={showPw ? "text" : "password"} placeholder="Password"
                     value={loginForm.password} onChange={setF("password")} onKeyDown={onKey}
                     autoComplete="new-password" name="gs-pw"
-                    onFocus={e => e.target.style.borderColor="#00D4AA"}
-                    onBlur={e => e.target.style.borderColor="#E2E8F0"}
                   />
                   <button type="button" onClick={() => setShowPw(v => !v)}
-                    style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)",
-                      background:"none", border:"none", cursor:"pointer", color:"#CBD5E1", padding:0, display:"flex" }}>
+                    style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", zIndex:1,
+                      background:"none", border:"none", cursor:"pointer", color:"#8897AE", padding:0, display:"flex" }}>
                     <EyeIcon open={showPw}/>
                   </button>
                 </div>
@@ -467,11 +477,16 @@ export default function Landing() {
               {/* Footer links */}
               {authRole==="user" ? (
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:14 }}>
-                  <Link to="/forgot" style={{ fontSize:12, color:"#94A3B8", textDecoration:"none" }}>Forgot password?</Link>
-                  <Link to="/register" style={{ fontSize:12, color:"#00D4AA", fontWeight:700, textDecoration:"none" }}>Create account →</Link>
+                  <Link to="/forgot" style={{ fontSize:12, color:"#8897AE", textDecoration:"none" }}
+                    onMouseEnter={e=>e.currentTarget.style.color="#CBD5E1"} onMouseLeave={e=>e.currentTarget.style.color="#8897AE"}>
+                    Forgot password?
+                  </Link>
+                  <Link to="/register" style={{ fontSize:12, color:"#00D4AA", fontWeight:700, textDecoration:"none" }}>
+                    Create account →
+                  </Link>
                 </div>
               ) : (
-                <p style={{ fontSize:11, color:"#94A3B8", textAlign:"center", marginTop:12, margin:"12px 0 0" }}>
+                <p style={{ fontSize:11, color:"#8897AE", textAlign:"center", marginTop:12, margin:"12px 0 0" }}>
                   Admin accounts are provisioned by the system.
                 </p>
               )}

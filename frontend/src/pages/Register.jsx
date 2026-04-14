@@ -54,7 +54,7 @@ const STYLES = `
 
   .rroot { display:flex; min-height:100vh; background:#060B18; }
   .r-hero { flex:0 0 45%; min-height:100vh; position:relative; overflow:hidden; background:#060B18; display:flex; flex-direction:column; padding:40px 48px; }
-  .r-form { flex:1; background:#0F172A; display:flex; align-items:center; justify-content:center; min-height:100vh; overflow-y:auto; padding:32px 24px; }
+  .r-form { flex:1; background:#0A1020; display:flex; align-items:center; justify-content:center; min-height:100vh; overflow-y:auto; padding:32px 24px; }
 
   @media(max-width:900px){
     .rroot { flex-direction:column; }
@@ -79,10 +79,11 @@ const STYLES = `
     background-size:56px 56px;
   }
 
-  /* Card */
+  /* Card — full dark */
   .r-card {
-    background:#0B1121; border-radius:22px; width:100%; max-width:460px;
-    box-shadow:0 24px 72px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+    background:#0D1526 !important;
+    border-radius:22px; width:100%; max-width:460px;
+    box-shadow:0 24px 72px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07);
     overflow:hidden; animation: rcardin 0.5s cubic-bezier(.22,.68,0,1.2) both;
   }
   @keyframes rcardin {
@@ -90,33 +91,54 @@ const STYLES = `
     to   { opacity:1; transform:translateY(0) scale(1); }
   }
 
-  /* Input */
-  .r-input {
-    width:100%; border:1.5px solid #334155; border-radius:11px;
-    padding:12px 14px 12px 42px; font-size:14px; font-weight:600; background:#0F172A;
-    color:#FFFFFF !important; outline:none; transition:border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  /* Inputs — scoped high specificity so text is ALWAYS visible */
+  .rroot .r-input,
+  .r-form .r-input {
+    width:100%; border:1.5px solid rgba(255,255,255,0.10); border-radius:11px;
+    padding:12px 14px 12px 42px; font-size:14px; font-weight:500;
+    background:#131F35 !important;
+    color:#E2E8F0 !important;
+    caret-color:#00D4AA;
+    color-scheme: dark;
+    outline:none; transition:border-color 0.2s, box-shadow 0.2s;
     font-family:'Inter',sans-serif; -webkit-appearance:none;
   }
-  .r-input:focus { border-color:#00D4AA; box-shadow:0 0 0 3px rgba(0,212,170,0.2); background:#1E293B; color:#FFFFFF !important; }
-  .r-input::placeholder { color:#64748B; font-weight:500; font-size:13px; }
+  .rroot .r-input:focus,
+  .r-form .r-input:focus {
+    border-color:#00D4AA;
+    box-shadow:0 0 0 3px rgba(0,212,170,0.18);
+    background:#182234 !important;
+    color:#F1F5F9 !important;
+  }
+  .rroot .r-input::placeholder,
+  .r-form .r-input::placeholder { color:#6B7A9A; font-weight:400; font-size:13px; }
+  /* Kill autofill */
+  .rroot .r-input:-webkit-autofill,
+  .rroot .r-input:-webkit-autofill:focus,
+  .rroot .r-input:-webkit-autofill:hover,
+  .r-form .r-input:-webkit-autofill {
+    -webkit-box-shadow:0 0 0 1000px #131F35 inset !important;
+    -webkit-text-fill-color:#E2E8F0 !important;
+    caret-color:#00D4AA !important;
+  }
   .r-input-pw { padding-right:42px; }
 
   /* Field icon */
-  .r-fi { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#64748B; display:flex; pointer-events:none; }
+  .r-fi { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#8897AE; display:flex; pointer-events:none; }
 
   /* Platform card */
   .plat-chip {
-    border:1.5px solid #334155; border-radius:10px; padding:7px 4px;
+    border:1.5px solid rgba(255,255,255,0.08); border-radius:10px; padding:7px 4px;
     display:flex; flex-direction:column; align-items:center; gap:4px;
-    cursor:pointer; background:#0F172A; transition:all 0.18s ease;
+    cursor:pointer; background:#131F35; transition:all 0.18s ease;
     min-width:0; user-select:none;
   }
-  .plat-chip:hover { border-color:#00D4AA40; background:#1E293B; }
+  .plat-chip:hover { border-color:rgba(0,212,170,0.3); background:#182234; }
   .plat-chip.sel {
-    border-color:#00D4AA; background:#1E293B;
+    border-color:#00D4AA; background:#182234;
     box-shadow:0 2px 10px rgba(0,212,170,0.2);
   }
-  .plat-name { font-size:9px; font-weight:700; color:#94A3B8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
+  .plat-name { font-size:9px; font-weight:700; color:#8897AE; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
   .plat-chip.sel .plat-name { color:#00D4AA; }
 
   /* Submit btn */
@@ -150,7 +172,7 @@ const STYLES = `
   .r-feat:hover { transform:translateX(4px); }
 
   /* Trust pills */
-  .r-trust { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#94A3B8; background:#0F172A; border-radius:20px; padding:4px 10px; border:1px solid #1E293B; }
+  .r-trust { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#8897AE; background:rgba(255,255,255,0.05); border-radius:20px; padding:4px 10px; border:1px solid rgba(255,255,255,0.10); }
   .r-tdot { width:6px;height:6px;border-radius:50%;background:#00D4AA;display:inline-block;flex-shrink:0; }
 
   @keyframes rspin { to { transform:rotate(360deg); } }
@@ -343,7 +365,7 @@ export default function Register() {
           <div style={{ height:4, background:"linear-gradient(90deg,#00D4AA,#7C3AED,#60A5FA)" }}/>
 
           <div style={{ padding:"28px 30px 26px" }}>
-            <h2 style={{ fontSize:22, fontWeight:800, color:"#0F172A", margin:"0 0 4px" }}>Create Account</h2>
+            <h2 style={{ fontSize:22, fontWeight:800, color:"#F1F5F9", margin:"0 0 4px" }}>Create Account</h2>
             <p style={{ fontSize:13, color:"#94A3B8", margin:"0 0 20px" }}>Start protecting your income today — free to join.</p>
 
             <form autoComplete="off" onSubmit={e => e.preventDefault()} style={{ display:"flex", flexDirection:"column", gap:11 }}>
@@ -355,8 +377,7 @@ export default function Register() {
               <div style={{ position:"relative" }}>
                 <FI><IconUser/></FI>
                 <input className="r-input" placeholder="Full Name" value={form.name} onChange={set("name")}
-                  autoComplete="off" name="rg-name"
-                  onFocus={e=>e.target.style.borderColor="#00D4AA"} onBlur={e=>e.target.style.borderColor="#E2E8F0"}/>
+                  autoComplete="off" name="rg-name" />
               </div>
 
               {/* Email */}
@@ -364,18 +385,16 @@ export default function Register() {
                 <div style={{ position:"relative" }}>
                   <FI><IconMail/></FI>
                   <input className="r-input" placeholder="Email Address" type="email" value={form.email} onChange={set("email")}
-                    autoComplete="off" name="rg-email"
-                    onFocus={e=>e.target.style.borderColor="#00D4AA"} onBlur={e=>e.target.style.borderColor="#E2E8F0"}/>
+                    autoComplete="off" name="rg-email" />
                 </div>
-                <p style={{ fontSize:10, color:"#94A3B8", margin:"4px 0 0 4px" }}>We'll send an OTP to this email for secure login.</p>
+                <p style={{ fontSize:10, color:"#8897AE", margin:"4px 0 0 4px" }}>We'll send an OTP to this email for secure login.</p>
               </div>
 
               {/* Phone */}
               <div style={{ position:"relative" }}>
                 <FI><IconPhone/></FI>
                 <input className="r-input" placeholder="Phone Number" type="tel" value={form.phone} onChange={set("phone")}
-                  autoComplete="off" name="rg-phone"
-                  onFocus={e=>e.target.style.borderColor="#00D4AA"} onBlur={e=>e.target.style.borderColor="#E2E8F0"}/>
+                  autoComplete="off" name="rg-phone" />
               </div>
 
               {/* Password */}
@@ -384,16 +403,15 @@ export default function Register() {
                   <FI><IconLock/></FI>
                   <input className={`r-input r-input-pw`} placeholder="Password"
                     type={showPw?"text":"password"} value={form.password} onChange={set("password")}
-                    autoComplete="new-password" name="rg-pw"
-                    onFocus={e=>e.target.style.borderColor="#00D4AA"} onBlur={e=>e.target.style.borderColor="#E2E8F0"}/>
+                    autoComplete="new-password" name="rg-pw" />
                   <button type="button" onClick={()=>setShowPw(v=>!v)}
-                    style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#CBD5E1", padding:0, display:"flex" }}>
+                    style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#4B5A72", padding:0, display:"flex" }}>
                     <EyeIcon open={showPw}/>
                   </button>
                 </div>
                 {form.password && (
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6 }}>
-                    <div style={{ flex:1, height:3, background:"#E2E8F0", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ flex:1, height:3, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
                       <div style={{ width:`${(strength.score/4)*100}%`, height:"100%", background:strength.color, borderRadius:99, transition:"width 0.3s, background 0.3s" }}/>
                     </div>
                     <span style={{ fontSize:11, fontWeight:700, color:strength.color, minWidth:50, textAlign:"right" }}>{strength.label}</span>
@@ -403,7 +421,7 @@ export default function Register() {
 
               {/* Platform selector */}
               <div>
-                <p style={{ fontSize:10, fontWeight:700, color:"#94A3B8", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:8 }}>
+                <p style={{ fontSize:10, fontWeight:700, color:"#8897AE", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:8 }}>
                   Select Your Service Platform
                 </p>
                 <div style={{ display:"flex", overflowX:"auto", gap:8, paddingBottom:8, scrollbarWidth:"none" }}>
@@ -419,7 +437,7 @@ export default function Register() {
                     </div>
                   ))}
                 </div>
-                {!form.platform && <p style={{ fontSize:10, color:"#94A3B8", margin:"2px 0 0" }}>Scroll to find or select your platform</p>}
+                {!form.platform && <p style={{ fontSize:10, color:"#8897AE", margin:"2px 0 0" }}>Scroll to find or select your platform</p>}
               </div>
 
               {/* Error */}
@@ -439,7 +457,7 @@ export default function Register() {
             </form>
 
             {/* Footer */}
-            <p style={{ textAlign:"center", fontSize:13, color:"#94A3B8", paddingTop:12, margin:0 }}>
+            <p style={{ textAlign:"center", fontSize:13, color:"#8897AE", paddingTop:12, margin:0 }}>
               Already have an account?{" "}
               <Link to="/login" style={{ color:"#00D4AA", fontWeight:700, textDecoration:"none" }}>Log in →</Link>
             </p>

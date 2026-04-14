@@ -56,6 +56,13 @@ public class User {
     @JsonIgnore
     private LocalDateTime otpExpiry;
 
+    // ── Worker Employment Verification ──────────────────────────────────────
+    @Column(name = "verification_status", nullable = false)
+    private String verificationStatus = "PENDING"; // PENDING | VERIFIED | REJECTED
+
+    @Column(name = "verification_note", length = 500)
+    private String verificationNote;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -157,4 +164,10 @@ public class User {
 
     public LocalDateTime getOtpExpiry() { return otpExpiry; }
     public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
+
+    public String getVerificationStatus() { return verificationStatus; }
+    public void setVerificationStatus(String verificationStatus) { this.verificationStatus = verificationStatus; }
+
+    public String getVerificationNote() { return verificationNote; }
+    public void setVerificationNote(String verificationNote) { this.verificationNote = verificationNote; }
 }

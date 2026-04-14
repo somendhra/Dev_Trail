@@ -147,9 +147,9 @@ public class ClaimService {
         req.setClaimed(true);
         claimRequestRepository.save(req);
 
-        if (originalSub != null) {
-            originalSub.setStatus(Subscription.Status.EXPIRED);
-            subscriptionRepository.save(originalSub);
+        if (sub != null) {
+            sub.setStatus(Subscription.Status.EXPIRED);
+            subscriptionRepository.save(sub);
         }
 
         Notification n = new Notification();

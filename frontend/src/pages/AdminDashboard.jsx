@@ -18,6 +18,7 @@ import {
   adminAddPartner,
   adminDeletePartner,
   adminUpdateUser,
+  adminVerifyWorker,
   adminCreateAdmin,
   adminListClaimRequests,
   adminApproveClaimRequest,
@@ -26,8 +27,12 @@ import {
   adminCreatePlan,
   adminGetWeatherReport,
   getWeatherForDistrict,
+  aiWorkerCheck,
 } from "../api";
-import adminBanner from "../../../assets/adminbanner.png";
+
+// Use public asset path
+const adminBanner = "/assets/adminbanner.png";
+
 import {
   FaShieldAlt, FaTachometerAlt, FaUsers, FaClipboardCheck,
   FaQuestionCircle, FaClipboardList, FaMoneyBillWave, FaCog,
@@ -257,6 +262,7 @@ const NAV_ITEMS = [
   {
     group: "USER MANAGEMENT", items: [
       { key: "users", label: "Users", icon: <FaUsers /> },
+      { key: "verification", label: "Worker Verification", icon: <FaIdBadge /> },
       { key: "partners", label: "Partner Platforms", icon: <FaGlobe /> },
     ]
   },
@@ -286,6 +292,7 @@ const NAV_ITEMS = [
 
 const PAGE_META = {
   users: { title: "User Management", subtitle: "View and manage all registered users", icon: <FaUsers />, color: "bg-blue-500" },
+  verification: { title: "Worker Verification", subtitle: "Verify gig workers' company employment and genuineness", icon: <FaIdBadge />, color: "bg-teal-500" },
   approvals: { title: "Insurance Approvals", subtitle: "Review and approve insurance payment requests", icon: <FaClipboardCheck />, color: "bg-amber-500" },
   queries: { title: "User Queries", subtitle: "Respond to questions from your users", icon: <FaQuestionCircle />, color: "bg-violet-500" },
   plans: { title: "Plan Management", subtitle: "Edit and update insurance plan pricing", icon: <FaClipboardList />, color: "bg-teal-500" },
@@ -458,6 +465,11 @@ export default function AdminDashboard() {
   const [userWeather, setUserWeather] = useState(null);
   const [userWeatherLoading, setUserWeatherLoading] = useState(false);
 
+  // Worker Verification
+  const [verifyNotes, setVerifyNotes] = useState({}); // keyed by userId
+  const [verifyLoading, setVerifyLoading] = useState({}); // keyed by userId
+  const [verifyFilter, setVerifyFilter] = useState("ALL"); // ALL | PENDING | VERIFIED | REJECTED
+
   const carouselRef = useRef(null);
   const chatScrollRef = useRef(null);
 
@@ -484,7 +496,7 @@ export default function AdminDashboard() {
   }, [section, partners.length]);
 
   useEffect(() => {
-    if (section === "users") loadUsers();
+    if (section === "users" || section === "verification") loadUsers();
     if (section === "plans") loadPlans();
     if (section === "payments" || section === "approvals") loadPayments();
     if (section === "queries") loadQueries();
@@ -1821,16 +1833,32 @@ export default function AdminDashboard() {
                     onChange={e => setChatText(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleReplyChat(); } }}
                     placeholder="Type a secure message..."
-                    rows={1}
-                    style={{ flex: 1, height:48 }}
+                    rows={2}
                     className="w-full"
-                    onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
+                    style={{ 
+                      flex: 1, 
+                      minHeight: 60,
+                      padding: "16px 20px", 
+                      fontSize: 14,
+                      borderRadius: 14,
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      color: "#F1F5F9",
+                      outline: "none",
+                      resize: "none",
+                      lineHeight: "1.5",
+                      fontFamily: "'Inter',sans-serif",
+                      transition: "border-color 0.2s"
+                    }}
+                    onFocus={e => e.target.style.borderColor = "#00D4AA"}
+                    onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.15)"}
+                    onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px"; }}
                   />
                   <button
                     onClick={handleReplyChat}
                     disabled={!chatText.trim() || isSending}
                     className="gs-btn-primary"
-                    style={{ padding: 0, width: 48, height: 48, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "12px", flexShrink: 0 }}
+                    style={{ padding: 0, width: 60, height: 60, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "14px", flexShrink: 0, alignSelf:"flex-end" }}
                     title="Send Message"
                   >
                     {isSending ? "⏳" : "➤"}
@@ -2274,17 +2302,17 @@ export default function AdminDashboard() {
         </div>
 
         {/* Weather report panel */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-xs"><FaCloudRain /></div>
+        <div className="bg-[#0D1526] rounded-2xl border border-gray-700 shadow-xl overflow-hidden mt-6 mb-2">
+          <div className="px-5 sm:px-6 py-5 border-b border-gray-800 bg-[#131F35] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-sky-500/10 rounded-lg flex items-center justify-center text-sky-400 text-sm"><FaCloudRain /></div>
               <div>
-                <p className="font-semibold text-gray-700 text-sm">🌦️ Live Weather Report — User Locations</p>
-                <p className="text-xs text-gray-400">Real-time disaster risk monitoring across all registered user locations</p>
+                <p className="font-bold text-gray-100 text-sm tracking-wide">🌦️ Live Weather Report — User Locations</p>
+                <p className="text-xs text-gray-400 mt-0.5">Real-time disaster risk monitoring across all registered user locations</p>
               </div>
             </div>
             <button onClick={loadWeatherReport} disabled={weatherLoading}
-              className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg transition disabled:opacity-50">
+              className="text-xs font-semibold text-sky-400 border border-sky-400/30 hover:bg-sky-400/10 px-3 py-1.5 rounded-lg transition disabled:opacity-50 flex items-center gap-2 uppercase tracking-wider">
               {weatherLoading ? "Loading…" : "↻ Refresh"}
             </button>
           </div>
@@ -2294,55 +2322,57 @@ export default function AdminDashboard() {
           ) : weatherReport.length === 0 ? (
             <div className="px-6 py-10 text-center">
               <p className="text-gray-400 text-sm font-medium">No location data available</p>
-              <p className="text-gray-300 text-xs mt-1">Weather reports will appear once users set their location in their profile</p>
+              <p className="text-gray-500 text-xs mt-1">Weather reports will appear once users set their location in their profile</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
-                  <tr className="text-gray-400 text-xs uppercase tracking-wide border-b border-gray-100 bg-gray-50/50">
-                    <th className="px-5 py-3 text-left font-semibold">Location</th>
-                    <th className="px-5 py-3 text-left font-semibold">📅 Date</th>
-                    <th className="px-5 py-3 text-left font-semibold">👥 Users</th>
-                    <th className="px-5 py-3 text-left font-semibold">🌡️ Temp °C</th>
-                    <th className="px-5 py-3 text-left font-semibold">💨 Wind km/h</th>
-                    <th className="px-5 py-3 text-left font-semibold">🌧️ Rain mm</th>
-                    <th className="px-5 py-3 text-left font-semibold">☁️ Condition</th>
-                    <th className="px-5 py-3 text-left font-semibold">Risk Level</th>
+                  <tr className="text-gray-400 text-xs uppercase tracking-widest border-b border-gray-800 bg-[#0f172a]">
+                    <th className="px-6 py-4 text-left font-bold">Location</th>
+                    <th className="px-5 py-4 text-left font-bold">📅 Date</th>
+                    <th className="px-5 py-4 text-left font-bold">👥 Users</th>
+                    <th className="px-5 py-4 text-left font-bold">🌡️ Temp °C</th>
+                    <th className="px-5 py-4 text-left font-bold">💨 Wind km/h</th>
+                    <th className="px-5 py-4 text-left font-bold">🌧️ Rain mm</th>
+                    <th className="px-5 py-4 text-left font-bold">☁️ Condition</th>
+                    <th className="px-5 py-4 text-left font-bold">Risk Level</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-800/50">
                   {weatherReport.map((loc, i) => {
-                    const risk = getRiskColor(loc.risk_index);
+                    const rval = parseFloat(loc.risk_index) || 0;
+                    const rLab = rval >= 0.7 ? "HIGH RISK" : rval >= 0.4 ? "MODERATE" : "LOW RISK";
+                    const rCls = rval >= 0.7 ? "bg-red-900/40 text-red-500 border-red-800/50" : rval >= 0.4 ? "bg-amber-900/40 text-amber-500 border-amber-800/50" : "bg-green-900/40 text-green-500 border-green-800/50";
                     const condition = loc.weather_condition || loc.condition || "N/A";
                     const temp = loc.temperature != null ? Number(loc.temperature).toFixed(1) : "—";
                     const wind = loc.wind_speed != null ? Number(loc.wind_speed).toFixed(1) : "—";
                     const rain = loc.rainfall != null ? Number(loc.rainfall).toFixed(1) : "—";
                     return (
-                      <tr key={i} className={`hover:bg-gray-50/60 transition ${parseFloat(loc.risk_index) >= 0.7 ? "bg-red-50/30" : ""}`}>
-                        <td className="px-5 py-3.5">
+                      <tr key={i} className={`hover:bg-gray-800/30 transition ${rval >= 0.7 ? "bg-red-900/10" : ""}`}>
+                        <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="font-bold text-gray-800 text-xs">{loc.district !== "—" ? loc.district : loc.state}</span>
-                            <span className="text-gray-400 text-[10px] uppercase tracking-wider">{loc.state}</span>
+                            <span className="font-bold text-gray-100 text-[13px]">{loc.district !== "—" ? loc.district : loc.state}</span>
+                            <span className="text-gray-500 text-[10px] uppercase tracking-widest mt-0.5">{loc.state}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap">
+                        <td className="px-5 py-4">
+                          <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">
                             {loc.timestamp ? new Date(loc.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-lg text-[11px] font-bold">
                             <FaUsers className="text-[10px]" /> {loc.usersInLocation || 0}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 font-semibold text-gray-700">{temp}</td>
-                        <td className="px-5 py-3.5 font-semibold text-gray-700">{wind}</td>
-                        <td className="px-5 py-3.5 font-semibold text-blue-600">{rain}</td>
-                        <td className="px-5 py-3.5 text-xs text-gray-600 max-w-[150px] truncate">{condition}</td>
-                        <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase ${risk.bg} ${risk.text} ${risk.border}`}>
-                            {risk.label}
+                        <td className="px-5 py-4 font-semibold text-gray-300">{temp}</td>
+                        <td className="px-5 py-4 font-semibold text-gray-300">{wind}</td>
+                        <td className="px-5 py-4 font-bold text-sky-400">{rain}</td>
+                        <td className="px-5 py-4 text-xs font-medium text-gray-400 max-w-[150px] truncate">{condition}</td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${rCls}`}>
+                            {rLab}
                           </span>
                         </td>
                       </tr>
@@ -3096,13 +3126,293 @@ export default function AdminDashboard() {
     );
   };
 
+
+  /* ══════════════════════════════════════
+     SECTION: WORKER VERIFICATION
+  ══════════════════════════════════════ */
+  const renderVerification = () => {
+    const handleVerify = async (userId, status) => {
+      const note = verifyNotes[userId] || "";
+      setVerifyLoading(prev => ({ ...prev, [userId]: true }));
+      try {
+        const res = await adminVerifyWorker(userId, status, note);
+        if (res?.error) { showMsg(res.error, "error"); return; }
+        showMsg(`Worker marked as ${status} successfully!`);
+        setVerifyNotes(prev => ({ ...prev, [userId]: "" }));
+        await loadUsers();
+      } catch { showMsg("Verification action failed", "error"); }
+      finally { setVerifyLoading(prev => ({ ...prev, [userId]: false })); }
+    };
+
+    const handleAIVerify = async (u) => {
+      setVerifyLoading(prev => ({ ...prev, [u.id]: true }));
+      showMsg(`Running AI Background Check for ${u.name}...`, "info");
+      try {
+        const res = await aiWorkerCheck(u.id, u.platform || "Unknown", u.name || "Unknown Worker");
+        if (res?.error) { showMsg(res.error, "error"); return; }
+        
+        let status = res.recommended_status;
+        let finalNote = res.ai_note + ` (Confidence: ${res.confidence_score}%)`;
+
+        const updateRes = await adminVerifyWorker(u.id, status, finalNote);
+        if (updateRes?.error) { showMsg(updateRes.error, "error"); return; }
+        
+        showMsg(`AI Verification Complete: ${status} (${res.confidence_score}%)`, status === "VERIFIED" ? "success" : "warning");
+        await loadUsers();
+      } catch (e) { 
+        showMsg("AI Verification failed", "error"); 
+      } finally { 
+        setVerifyLoading(prev => ({ ...prev, [u.id]: false })); 
+      }
+    };
+
+    const filtered = verifyFilter === "ALL"
+      ? users
+      : users.filter(u => (u.verificationStatus || "PENDING") === verifyFilter);
+
+    // Group by platform/company
+    const byCompany = {};
+    filtered.forEach(u => {
+      const co = u.platform || "Unknown";
+      if (!byCompany[co]) byCompany[co] = [];
+      byCompany[co].push(u);
+    });
+
+    const totalVerified  = users.filter(u => u.verificationStatus === "VERIFIED").length;
+    const totalPending   = users.filter(u => !u.verificationStatus || u.verificationStatus === "PENDING").length;
+    const totalRejected  = users.filter(u => u.verificationStatus === "REJECTED").length;
+
+    const tabStyle = (active) => ({
+      padding: "8px 20px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+      cursor: "pointer", border: "none", fontFamily: "'Inter',sans-serif",
+      transition: "all 0.2s",
+      background: active ? "rgba(0,212,170,0.15)" : "rgba(255,255,255,0.04)",
+      color:  active ? "#00D4AA" : "rgba(255,255,255,0.5)",
+      outline: active ? "1px solid rgba(0,212,170,0.3)" : "1px solid rgba(255,255,255,0.08)",
+    });
+
+    const vBadge = (status) => {
+      const cfg = {
+        VERIFIED: { bg: "rgba(0,212,170,0.15)", color: "#00D4AA", border: "rgba(0,212,170,0.3)", icon: "✅", label: "VERIFIED" },
+        REJECTED: { bg: "rgba(248,113,113,0.15)", color: "#F87171", border: "rgba(248,113,113,0.3)", icon: "❌", label: "REJECTED" },
+        PENDING:  { bg: "rgba(251,191,36,0.15)",  color: "#FBBF24", border: "rgba(251,191,36,0.3)", icon: "⏳", label: "PENDING" },
+      };
+      const c = cfg[status] || cfg.PENDING;
+      return (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 12px",
+          borderRadius: 999, fontSize: 11, fontWeight: 800, letterSpacing: "0.5px",
+          background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+          {c.icon} {c.label}
+        </span>
+      );
+    };
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+        {/* Stats row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          {[
+            { label: "Total Workers", value: users.length, color: "#60A5FA", bg: "rgba(96,165,250,0.12)", icon: "👷" },
+            { label: "Verified",       value: totalVerified, color: "#00D4AA", bg: "rgba(0,212,170,0.12)", icon: "✅" },
+            { label: "Pending Review", value: totalPending,  color: "#FBBF24", bg: "rgba(251,191,36,0.12)", icon: "⏳" },
+          ].map(({ label, value, color, bg, icon }) => (
+            <div key={label} style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 16, padding: "18px 20px",
+              display: "flex", alignItems: "center", gap: 14, position: "relative", overflow: "hidden" }}>
+              <div style={{ fontSize: 28 }}>{icon}</div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "1.5px" }}>{label}</div>
+                <div style={{ fontSize: 30, fontWeight: 900, color, fontFamily: "'Sora',sans-serif", lineHeight: 1 }}>{value}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pending Re-verification Alert */}
+        {totalPending > 0 && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 16, padding: "14px 20px",
+            background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)",
+            borderRadius: 14, flexWrap: "wrap"
+          }}>
+            <span style={{ fontSize: 24 }}>⏳</span>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#FBBF24", marginBottom: 2 }}>
+                {totalPending} worker{totalPending !== 1 ? "s" : ""} awaiting verification
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
+                These workers may have changed their job, platform, or location. Review and verify their updated details.
+              </div>
+            </div>
+            <button
+              onClick={() => setVerifyFilter("PENDING")}
+              style={{ padding: "8px 18px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+                background: "rgba(251,191,36,0.2)", color: "#FBBF24",
+                border: "1px solid rgba(251,191,36,0.3)", cursor: "pointer" }}
+            >
+              Review Now →
+            </button>
+          </div>
+        )}
+
+        {/* Filter Tabs */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {["ALL", "PENDING", "VERIFIED", "REJECTED"].map(f => (
+            <button key={f} style={tabStyle(verifyFilter === f)} onClick={() => setVerifyFilter(f)}>
+              {f} {f !== "ALL" && <span style={{ opacity: 0.7, fontSize: 10 }}>
+                ({f === "PENDING" ? totalPending : f === "VERIFIED" ? totalVerified : totalRejected})
+              </span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Company Groups */}
+        {Object.keys(byCompany).length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+            No workers match this filter.
+          </div>
+        ) : (
+          Object.entries(byCompany).map(([company, companyUsers]) => (
+            <div key={company} style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 18, overflow: "hidden" }}>
+              {/* Company header */}
+              <div style={{ padding: "14px 20px", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)",
+                display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(0,212,170,0.12)", border: "1px solid rgba(0,212,170,0.2)",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+                  🏢
+                </div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#F1F5F9", fontFamily: "'Sora',sans-serif" }}>{company}</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
+                    {companyUsers.length} worker{companyUsers.length !== 1 ? "s" : ""} registered
+                    &nbsp;·&nbsp; {companyUsers.filter(u => u.verificationStatus === "VERIFIED").length} verified
+                  </div>
+                </div>
+              </div>
+
+              {/* Worker rows */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {companyUsers.map((u, idx) => {
+                  const status = u.verificationStatus || "PENDING";
+                  const isLoading = verifyLoading[u.id];
+                  return (
+                    <div key={u.id} style={{
+                      padding: "16px 20px", display: "flex", alignItems: "flex-start", gap: 16,
+                      borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                      flexWrap: "wrap",
+                    }}>
+                      {/* Avatar */}
+                      <Avatar name={u.name || u.email} />
+
+                      <div style={{ flex: 1, minWidth: 180 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: "#F1F5F9" }}>{u.name}</span>
+                          {vBadge(status)}
+                          {/* Job change indicator — shown when platform + location both set and status is PENDING */}
+                          {status === "PENDING" && u.platform && u.state && (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              padding: "3px 9px", borderRadius: 20, fontSize: 10, fontWeight: 800,
+                              background: "rgba(139,92,246,0.15)", color: "#A78BFA",
+                              border: "1px solid rgba(139,92,246,0.3)", letterSpacing: "0.3px"
+                            }}>
+                              🔄 RE-VERIFY
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", display: "flex", gap: 14, flexWrap: "wrap" }}>
+                          <span>📧 {u.email}</span>
+                          {u.phone && <span>📞 {u.phone}</span>}
+                          {u.district && <span>📍 {u.district}, {u.state}</span>}
+                          {u.platform && <span>🏢 {u.platform}</span>}
+                        </div>
+                        {u.verificationNote && (
+                          <div style={{ marginTop: 6, fontSize: 11, color: status === "REJECTED" ? "#F87171" : "#94A3B8",
+                            background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "5px 10px", display: "inline-block" }}>
+                            📝 {u.verificationNote}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Verification Controls */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 220 }}>
+                        <textarea
+                          rows={2}
+                          placeholder="Add a note (optional)…"
+                          value={verifyNotes[u.id] || ""}
+                          onChange={e => setVerifyNotes(prev => ({ ...prev, [u.id]: e.target.value }))}
+                          style={{ width: "100%", padding: "8px 12px", fontSize: 12, borderRadius: 10,
+                            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                            color: "#F1F5F9", outline: "none", resize: "none", fontFamily: "'Inter',sans-serif",
+                            boxSizing: "border-box" }}
+                          onFocus={e => e.target.style.borderColor = "#00D4AA"}
+                          onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                        />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            disabled={isLoading || status === "VERIFIED"}
+                            onClick={() => handleVerify(u.id, "VERIFIED")}
+                            style={{ flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: (isLoading || status === "VERIFIED") ? "not-allowed" : "pointer",
+                              border: "none", fontFamily: "'Inter',sans-serif", transition: "all 0.2s",
+                              background: status === "VERIFIED" ? "rgba(0,212,170,0.08)" : "rgba(0,212,170,0.15)",
+                              color: status === "VERIFIED" ? "rgba(0,212,170,0.4)" : "#00D4AA",
+                              opacity: (isLoading || status === "VERIFIED") ? 0.6 : 1 }}>
+                            {isLoading ? "…" : "✅ Verify"}
+                          </button>
+                          <button
+                            disabled={isLoading || status === "REJECTED"}
+                            onClick={() => handleVerify(u.id, "REJECTED")}
+                            style={{ flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: (isLoading || status === "REJECTED") ? "not-allowed" : "pointer",
+                              border: "none", fontFamily: "'Inter',sans-serif", transition: "all 0.2s",
+                              background: status === "REJECTED" ? "rgba(248,113,113,0.08)" : "rgba(248,113,113,0.15)",
+                              color: status === "REJECTED" ? "rgba(248,113,113,0.4)" : "#F87171",
+                              opacity: (isLoading || status === "REJECTED") ? 0.6 : 1 }}>
+                            {isLoading ? "…" : "❌ Reject"}
+                          </button>
+                          {status === "PENDING" && (
+                            <button
+                              disabled={isLoading}
+                              onClick={() => handleAIVerify(u)}
+                              style={{ flex: 1, padding: "8px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: isLoading ? "not-allowed" : "pointer",
+                                border: "1px solid rgba(139,92,246,0.3)", fontFamily: "'Inter',sans-serif", transition: "all 0.2s",
+                                background: "rgba(139,92,246,0.1)",
+                                color: "#A78BFA",
+                                opacity: isLoading ? 0.6 : 1 }}>
+                              {isLoading ? "…" : "✨ AI Auto-Verify"}
+                            </button>
+                          )}
+                          {status !== "PENDING" && (
+                            <button
+                              disabled={isLoading}
+                              onClick={() => handleVerify(u.id, "PENDING")}
+                              style={{ padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 700, cursor: isLoading ? "not-allowed" : "pointer",
+                                border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)",
+                                color: "rgba(255,255,255,0.4)", fontFamily: "'Inter',sans-serif", transition: "all 0.2s" }}>
+                              ↩
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  };
+
   /* ══════════════════════════════════════
      RENDER
   ══════════════════════════════════════ */
 
   const sectionRenderers = {
+
     overview: renderOverview,
     users: renderUsers,
+    verification: renderVerification,
     approvals: renderApprovals,
     queries: renderQueries,
     plans: renderPlans,
@@ -3132,12 +3442,7 @@ export default function AdminDashboard() {
       <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, overflow:"hidden" }}>
         {/* Mobile top bar */}
         <header className="lg:hidden" style={{ background:"#060B18", borderBottom:"1px solid rgba(255,255,255,0.07)", padding:"12px 16px", display:"flex", alignItems:"center", gap:12, position:"sticky", top:0, zIndex:20 }}>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            style={{ width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:11, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", color:"#94A3B8", cursor:"pointer" }}
-          >
-            <FaBars/>
-          </button>
+
           <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0 }}>
             <div style={{ width:30, height:30, borderRadius:9, background:"linear-gradient(135deg,#00D4AA,#7C3AED)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:13, flexShrink:0 }}>
               <FaShieldAlt/>

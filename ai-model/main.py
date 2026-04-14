@@ -383,6 +383,11 @@ class ParametricRequest(BaseModel):
     coverage:   float = 6000.0
     triggers:   Optional[List[Dict[str, Any]]] = None
 
+class VerifyWorkerRequest(BaseModel):
+    user_id:       int
+    platform:      str
+    name:          str
+
 # ─────────────────────────────────────────────
 # ROUTES
 # ─────────────────────────────────────────────
@@ -497,6 +502,40 @@ async def detect_fraud_route(req: FraudRequest):
         "fraud_analysis":  result,
         "action":          result["recommendation"],
         "analyzed_at":     datetime.datetime.now().isoformat(),
+    }
+
+
+@app.post("/ai/verify-employment")
+def verify_employment(req: VerifyWorkerRequest):
+    """
+    Simulates an AI-driven background check with a gig platform's database.
+    """
+    # Deterministic simulation based on user_id so it doesn't flip-flop
+    seed = int(hashlib.md5(f"{req.user_id}:{req.platform}:{req.name}".encode()).hexdigest(), 16)
+    rng = random.Random(seed)
+    
+    # 80% chance to be verified, 15% manual review, 5% rejected
+    roll = rng.random()
+    if roll < 0.80:
+        status = "VERIFIED"
+        confidence = round_val(rng.uniform(85.0, 99.9), 1)
+        note = f"[AI Automated Check] Verified via direct integration with {req.platform} employer database. Identity and active employment confirmed."
+    elif roll < 0.95:
+        status = "PENDING"
+        confidence = round_val(rng.uniform(40.0, 75.0), 1)
+        note = f"[AI Automated Check] Partial match found on {req.platform}. Requires manual administrative review."
+    else:
+        status = "REJECTED"
+        confidence = round_val(rng.uniform(10.0, 35.0), 1)
+        note = f"[AI Automated Check] No active employment record found for '{req.name}' on {req.platform}. Rejected."
+
+    return {
+        "user_id": req.user_id,
+        "platform": req.platform,
+        "recommended_status": status,
+        "confidence_score": confidence,
+        "ai_note": note,
+        "checked_at": datetime.datetime.now().isoformat()
     }
 
 

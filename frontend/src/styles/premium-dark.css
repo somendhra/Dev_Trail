@@ -8,16 +8,16 @@
   --gs-bg:         #060B18;
   --gs-surface:    #0F172A;
   --gs-surface2:   #1E293B;
-  --gs-border:     rgba(255,255,255,0.07);
-  --gs-border2:    rgba(255,255,255,0.12);
+  --gs-border:     rgba(255,255,255,0.09);
+  --gs-border2:    rgba(255,255,255,0.16);
   --gs-teal:       #00D4AA;
   --gs-violet:     #7C3AED;
   --gs-blue:       #60A5FA;
   --gs-amber:      #FBBF24;
   --gs-red:        #F87171;
   --gs-text:       #FFFFFF;
-  --gs-text2:      #E2E8F0;
-  --gs-text3:      rgba(255,255,255,0.65);
+  --gs-text2:      #E8EFF7;   /* was #E2E8F0 — slightly brighter */
+  --gs-text3:      rgba(255,255,255,0.82);  /* was 0.65 — much more readable */
   --gs-grad:       linear-gradient(135deg, #00D4AA, #7C3AED);
   --gs-radius:     16px;
   --gs-shadow:     0 8px 32px rgba(0,0,0,0.35);
@@ -79,7 +79,7 @@ input:focus, textarea:focus, select:focus {
   background: rgba(255,255,255,0.07) !important;
   outline: none !important;
 }
-input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.25) !important; }
+input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.45) !important; }
 select option { background: #1E293B; color: #F1F5F9; }
 
 /* ── Premium Buttons ── */
@@ -174,7 +174,7 @@ select option { background: #1E293B; color: #F1F5F9; }
 /* ── Table rows ── */
 .divide-y > * + * { border-top-color: var(--gs-border) !important; }
 tr:hover { background: rgba(255,255,255,0.05) !important; }
-th { color: var(--gs-text2) !important; background: rgba(255,255,255,0.05) !important; font-weight: 700 !important; }
+th { color: var(--gs-text) !important; background: rgba(255,255,255,0.06) !important; font-weight: 700 !important; }
 td { color: var(--gs-text) !important; border-color: var(--gs-border) !important; }
 
 /* ── Premium stat card ── */
@@ -213,7 +213,7 @@ td { color: var(--gs-text) !important; border-color: var(--gs-border) !important
 .gs-tab {
   padding: 9px 18px; border-radius: 10px; border: none;
   font-size: 13px; font-weight: 600; cursor: pointer;
-  color: var(--gs-text3); background: transparent;
+  color: rgba(255,255,255,0.78); background: transparent;
   transition: all 0.2s; font-family:'Inter',sans-serif;
   display: flex; align-items: center; gap: 7px;
   white-space: nowrap;
@@ -270,8 +270,8 @@ td { color: var(--gs-text) !important; border-color: var(--gs-border) !important
 .gs-btn-ghost {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 9px 18px; border-radius: 11px; cursor: pointer; font-family:'Inter',sans-serif;
-  font-size: 13px; font-weight: 600; color: var(--gs-text2);
-  background: rgba(255,255,255,0.05); border: 1px solid var(--gs-border);
+  font-size: 13px; font-weight: 600; color: var(--gs-text);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--gs-border2);
   transition: all 0.2s;
 }
 .gs-btn-ghost:hover { border-color: var(--gs-border2); color: var(--gs-text); background: rgba(255,255,255,0.09); }
@@ -286,7 +286,7 @@ td { color: var(--gs-text) !important; border-color: var(--gs-border) !important
   color: var(--gs-text); margin: 0;
 }
 .gs-section-sub {
-  font-size: 12px; color: var(--gs-text3); margin: 2px 0 0; font-weight: 500;
+  font-size: 12px; color: rgba(255,255,255,0.75); margin: 2px 0 0; font-weight: 500;
 }
 
 /* ── Page header bar ── */

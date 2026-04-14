@@ -45,22 +45,22 @@ const STYLES = `
 
   /* Section label */
   .gs-section-label {
-    font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
-    color: rgba(255,255,255,0.2); padding: 8px 12px 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: rgba(255,255,255,0.45); padding: 8px 12px 4px;
   }
 
   /* Nav item */
   .gs-item {
     display: flex; align-items: center; gap: 11px;
-    padding: 10px 12px; border-radius: 11px; text-decoration: none;
-    font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.45);
+    padding: 11px 12px; border-radius: 11px; text-decoration: none;
+    font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.78);
     transition: all 0.2s ease; position: relative;
     border: 1px solid transparent;
   }
   .gs-item:hover {
-    color: rgba(255,255,255,0.85);
-    background: rgba(255,255,255,0.05);
-    border-color: rgba(255,255,255,0.07);
+    color: #fff;
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.1);
   }
   .gs-item.active {
     color: #00D4AA; background: rgba(0,212,170,0.1);
@@ -68,7 +68,7 @@ const STYLES = `
     font-weight: 600;
   }
   .gs-item.active .gs-item-icon { color: #00D4AA; }
-  .gs-item-icon { font-size: 15px; flex-shrink: 0; }
+  .gs-item-icon { font-size: 16px; flex-shrink: 0; }
 
   /* Badge */
   .gs-badge {
@@ -95,8 +95,8 @@ const STYLES = `
     display: flex; align-items: center; justify-content: center;
     color: #00D4AA; font-size: 14px; font-weight: 700;
   }
-  .gs-user-name { font-size: 13px; font-weight: 600; color: #F1F5F9; line-height: 1.2; }
-  .gs-user-role { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; }
+  .gs-user-name { font-size: 14px; font-weight: 700; color: #F1F5F9; line-height: 1.2; }
+  .gs-user-role { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 1px; }
 
   /* Logout btn */
   .gs-logout {

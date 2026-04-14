@@ -165,14 +165,75 @@ public class AdminController {
             return ResponseEntity.status(404).body(Map.of("error", "User not found"));
         }
         User user = userOpt.get();
-        if (updates.containsKey("name")) user.setName((String) updates.get("name"));
-        if (updates.containsKey("phone")) user.setPhone((String) updates.get("phone"));
-        if (updates.containsKey("platform")) user.setPlatform((String) updates.get("platform"));
+        List<String> changedFields = new java.util.ArrayList<>();
+        if (updates.containsKey("name")) { user.setName((String) updates.get("name")); changedFields.add("Name"); }
+        if (updates.containsKey("phone")) { user.setPhone((String) updates.get("phone")); changedFields.add("Phone Number"); }
+        if (updates.containsKey("platform")) { user.setPlatform((String) updates.get("platform")); changedFields.add("Platform"); }
+        if (updates.containsKey("verificationStatus")) { user.setVerificationStatus((String) updates.get("verificationStatus")); changedFields.add("Verification Status"); }
+        if (updates.containsKey("verificationNote")) { user.setVerificationNote((String) updates.get("verificationNote")); changedFields.add("Verification Note"); }
         if (updates.containsKey("password")) {
             user.setPassword(passwordEncoder.encode((String) updates.get("password")));
+            changedFields.add("Password");
         }
         userService.updateUser(user);
+
+        // Notify user of profile update
+        try {
+            if (!changedFields.isEmpty()) {
+                Notification n = new Notification();
+                n.setUser(user);
+                n.setTitle("Profile Updated");
+                n.setMessage("Your profile information has been updated by GigShield Administration. Changes made: " + String.join(", ", changedFields) + ".");
+                n.setType("INFO");
+                notificationRepository.save(n);
+            }
+        } catch (Exception e) {}
+
         return ResponseEntity.ok(user);
+    }
+
+    /**
+     * PUT /api/admin/users/{id}/verify
+     * Allows admin to verify or reject a gig worker's employment with a company.
+     * Body: { "status": "VERIFIED" | "REJECTED", "note": "optional explanation" }
+     */
+    @PutMapping("/admin/users/{id}/verify")
+    public ResponseEntity<?> verifyWorker(@PathVariable Long id,
+                                          @RequestBody Map<String, String> body) {
+        Optional<User> userOpt = userService.findById(id);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+        }
+        String status = body.get("status");
+        if (status == null || (!status.equals("VERIFIED") && !status.equals("REJECTED") && !status.equals("PENDING"))) {
+            return ResponseEntity.badRequest().body(Map.of("error", "status must be VERIFIED, REJECTED, or PENDING"));
+        }
+        User user = userOpt.get();
+        user.setVerificationStatus(status);
+        if (body.containsKey("note")) {
+            user.setVerificationNote(body.get("note"));
+        }
+        userService.updateUser(user);
+
+        // Send a notification to the worker
+        try {
+            Notification n = new Notification();
+            n.setUser(user);
+            if ("VERIFIED".equals(status)) {
+                n.setTitle("✅ Employment Verified!");
+                n.setMessage("Your employment with " + user.getPlatform() + " has been verified by GigShield. Your account is now fully trusted.");
+                n.setType("SUCCESS");
+            } else if ("REJECTED".equals(status)) {
+                n.setTitle("❌ Verification Failed");
+                n.setMessage("We could not verify your employment with " + user.getPlatform() + ". Reason: " + (body.getOrDefault("note", "Contact support for details.")));
+                n.setType("DANGER");
+            }
+            notificationRepository.save(n);
+        } catch (Exception e) {
+            System.err.println("Warning: Could not send verification notification: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(Map.of("message", "User verification status updated to " + status, "user", user));
     }
 
     // ------------ user queries ----------------
@@ -224,14 +285,19 @@ public class AdminController {
                                         @RequestBody Map<String, Object> updates) {
         try {
             Plan plan = planService.getPlanById(id);
+            List<String> planChanges = new java.util.ArrayList<>();
+            
             if (updates.containsKey("weeklyPremium")) {
                 plan.setWeeklyPremium(Double.valueOf(updates.get("weeklyPremium").toString()));
+                planChanges.add("Premium Amount");
             }
             if (updates.containsKey("coverageAmount")) {
                 plan.setCoverageAmount(Double.valueOf(updates.get("coverageAmount").toString()));
+                planChanges.add("Coverage Amount");
             }
             if (updates.containsKey("name")) {
                 plan.setName(updates.get("name").toString());
+                planChanges.add("Name");
             }
             if (updates.containsKey("features")) {
                 Object fObj = updates.get("features");
@@ -242,11 +308,29 @@ public class AdminController {
                 } else if (fObj != null) {
                     plan.setFeatures(fObj.toString());
                 }
+                planChanges.add("Features List");
             }
             if (updates.containsKey("parametricTriggers")) {
                 plan.setParametricTriggers(updates.get("parametricTriggers").toString());
+                planChanges.add("Parametric Triggers");
             }
             Plan saved = planService.savePlan(plan);
+
+            // Notify all users about plan update
+            try {
+                if (!planChanges.isEmpty()) {
+                    List<User> users = userService.getAllUsers();
+                    for (User u : users) {
+                        Notification n = new Notification();
+                        n.setUser(u);
+                        n.setTitle("Insurance Plan Updated");
+                        n.setMessage("The '" + saved.getName() + "' plan has been updated! Changes made: " + String.join(", ", planChanges) + ". Check the plans page!");
+                        n.setType("INFO");
+                        notificationRepository.save(n);
+                    }
+                }
+            } catch (Exception e) {}
+
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -279,6 +363,20 @@ public class AdminController {
             }
 
             Plan saved = planService.savePlan(p);
+
+            // Notify all users about new plan
+            try {
+                List<User> users = userService.getAllUsers();
+                for (User u : users) {
+                    Notification n = new Notification();
+                    n.setUser(u);
+                    n.setTitle("New Insurance Plan! 🌟");
+                    n.setMessage("A new '" + saved.getName() + "' protection plan is now available. Log in to enroll and secure your income!");
+                    n.setType("SUCCESS");
+                    notificationRepository.save(n);
+                }
+            } catch (Exception e) {}
+
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

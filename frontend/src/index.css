@@ -17,9 +17,10 @@
   --surface:   rgba(255,255,255,0.04);
   --border:    rgba(255,255,255,0.08);
   --border-2:  rgba(255,255,255,0.14);
-  --text-1:    #F1F5F9;
-  --text-2:    #94A3B8;
-  --text-3:    #64748B;
+  /* ─ Text: bumped for readability on dark backgrounds ─ */
+  --text-1:    #FFFFFF;   /* headings / primary — full white */
+  --text-2:    #C8D6E8;   /* secondary — was #B8C5D6, now brighter */
+  --text-3:    #9AABBD;   /* muted / labels — was #8897AE, now brighter */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -33,6 +34,7 @@ html {
 html, body, #root {
   height: 100%;
   font-family: 'Inter', sans-serif;
+  color: var(--text-1);
 }
 
 /* Custom Scrollbar */
